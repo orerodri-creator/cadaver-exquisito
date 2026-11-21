@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Cadáver Exquisito</title>
-<meta name="description" content="Juego surrealista para escribir un poema a muchas manos.">
+<meta name="description" content="Cadáver exquisito para la cartografía sensible de la comisión del Taller de Integración Final, Gestión Cultural, UNLaM.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%232537C4'/%3E%3Cpath d='M8 9h16M8 14h16M8 19h16M8 24h10' stroke='white' stroke-width='2'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -146,7 +146,14 @@ body { margin: 0; }
 [hidden] { display: none !important; }
 img { max-width: 100%; }
 .foot { border-top: 1px solid var(--rule); padding-top: 14px; font-size: .85rem; color: var(--muted); }
+.foot { display: grid; gap: 8px; }
 .foot strong { color: var(--ink); }
+.credit { font-size: .78rem; }
+.intro { display: grid; gap: 6px; max-width: 34ch; }
+.dims { border-top: 1px dashed var(--fold-edge); padding-top: 12px; display: grid; gap: 6px; font-size: .9rem; color: var(--muted); }
+.dims p { margin: 0; }
+.dims ul { margin: 0; padding-left: 1.1em; display: grid; gap: 4px; }
+.dims strong { color: var(--ink); font-weight: 600; }
 .link { background: none; border: none; padding: 0; color: var(--accent); text-decoration: underline; cursor: pointer; font-size: inherit; }
 .write .field input { background: var(--paper); border: 1px solid var(--rule); padding: 10px 12px; border-radius: 4px; width: 100%; }
 </style>
@@ -155,11 +162,14 @@ img { max-width: 100%; }
 <div class="wrap">
   <header class="top">
     <a href="#" class="brand">Cadáver<br><i>exquisito</i></a>
-    <p class="tag">Escribí a muchas manos. Cada quien ve solo las últimas palabras del verso anterior; el poema entero se despliega al final.</p>
+    <div class="intro">
+      <p class="eyebrow">Cartografía sensible · Taller de Integración Final</p>
+      <p class="tag">Escribimos entre toda la comisión el recorrido de estos dos años. Cada quien lee solo las últimas palabras de quien escribió antes; al final, la trayectoria se despliega entera.</p>
+    </div>
   </header>
   <div id="notice" class="notice" hidden></div>
   <main id="app" aria-live="polite"></main>
-  <footer class="foot"><span id="whoami"></span></footer>
+  <footer class="foot"><span id="whoami"></span><span class="credit">Cartografía sensible colectiva · Taller de Integración Final · Ciclo de Complementación Curricular en Gestión Cultural · Escuela de Artes, Medios e Innovación · UNLaM</span></footer>
 </div>
 <div id="toast" class="toast" hidden></div>
 
@@ -244,12 +254,12 @@ img { max-width: 100%; }
     const newBtn = `<a class="btn primary" href="#nueva">Nueva partida</a>`;
     if (!games.length) {
       app.innerHTML = `<section class="empty">
-        <p class="eyebrow">Todavía no hay partidas</p>
+        <p class="eyebrow">Todavía no hay recorridos</p>
         <h2>Doblá la primera hoja</h2>
         <ol class="rules">
-          <li>Alguien abre una partida y elige cuántos versos tendrá.</li>
-          <li>Cada persona toma el turno y ve solo las últimas palabras del verso anterior.</li>
-          <li>Al completar los versos, el poema se despliega con todas las firmas.</li>
+          <li>Quien coordina abre una partida y elige cuántos versos tendrá: uno por cada integrante de la comisión.</li>
+          <li>Cada persona toma el turno y lee solo las últimas palabras de quien escribió antes. Desde ahí sigue el recorrido.</li>
+          <li>Cuando se completan los versos, la trayectoria se despliega con todas las firmas y los lugares desde donde escribimos.</li>
         </ol>
         ${newBtn}
       </section>`;
@@ -257,10 +267,10 @@ img { max-width: 100%; }
     }
     app.innerHTML = `
       <section class="section">
-        <div class="section-head"><h2>En juego</h2>${newBtn}</div>
-        <div class="list">${open.length ? open.map(card).join('') : '<p class="small">No hay partidas abiertas. Empezá una nueva.</p>'}</div>
+        <div class="section-head"><h2>Recorridos en curso</h2>${newBtn}</div>
+        <div class="list">${open.length ? open.map(card).join('') : '<p class="small">No hay recorridos abiertos. Empezá uno nuevo.</p>'}</div>
       </section>
-      ${done.length ? `<section class="section"><div class="section-head"><h2>Poemas revelados</h2><a class="btn" href="/api/export.txt" download>Descargar todos (.txt)</a></div><div class="list">${done.map(card).join('')}</div></section>` : ''}`;
+      ${done.length ? `<section class="section"><div class="section-head"><h2>Trayectorias reveladas</h2><a class="btn" href="/api/export.txt" download>Descargar todos (.txt)</a></div><div class="list">${done.map(card).join('')}</div></section>` : ''}`;
   }
 
   function nameField(id) {
@@ -282,11 +292,11 @@ img { max-width: 100%; }
       <form class="new" id="newForm">
         <div><p class="eyebrow">Nueva partida</p><h2>Prepará la hoja</h2></div>
         <div class="field"><label for="f-title">Título</label>
-          <input id="f-title" maxlength="80" placeholder="El cadáver exquisito beberá el vino nuevo"></div>
+          <input id="f-title" maxlength="80" placeholder="Nuestra trayectoria en Gestión Cultural"></div>
         <div class="two">
           <div class="field"><label for="f-turns">Versos</label>
             <select id="f-turns">${[4,6,8,10,12,16,20,25,30,35,40].map(n => `<option value="${n}" ${n===35?'selected':''}>${n} versos</option>`).join('')}</select>
-            <span class="hint">El poema se revela al llegar a este número.</span></div>
+            <span class="hint">El poema se revela al llegar a este número. Para que escriba toda la comisión, elegí un verso por persona.</span></div>
           <div class="field"><label for="f-peek">Palabras visibles</label>
             <select id="f-peek">${[1,2,3,4,5].map(n => `<option value="${n}" ${n===3?'selected':''}>${n}</option>`).join('')}</select>
             <span class="hint">Cuántas palabras del verso anterior ve quien escribe.</span></div>
@@ -329,7 +339,7 @@ img { max-width: 100%; }
       const lines = g.lines || [];
       app.innerHTML = `<a class="back" href="#">← Todas las partidas</a>
         <div class="section">
-          <div><p class="eyebrow">Revelado · ${plural(lines.length, 'verso', 'versos')} · ${plural(g.hands, 'mano', 'manos')}</p><h2>${esc(g.title)}</h2></div>
+          <div><p class="eyebrow">Trayectoria revelada · ${plural(lines.length, 'verso', 'versos')} · ${plural(g.hands, 'mano', 'manos')}</p><h2>${esc(g.title)}</h2></div>
           <div class="poem ${anim ? 'unfold' : ''}">
             ${lines.length ? lines.map((l, i) => `<div class="verse" style="--i:${i}"><span class="v">${esc(l.text)}</span><span class="who">${esc(l.name || 'Anónimo')}${l.place ? `<span class="place">${esc(l.place)}</span>` : ''}</span></div>`).join('') : '<p class="small">Nadie llegó a escribir.</p>'}
           </div>
@@ -341,16 +351,26 @@ img { max-width: 100%; }
 
     const mine = myTurn && myTurn.gid === gid;
     const other = othersWriting(g);
-    const peek = g.count ? `<div class="peek"><span class="lbl">El verso anterior termina así</span><span class="words">${esc(g.peekWords)}</span></div>`
-      : `<div class="peek"><span class="lbl">Hoja en blanco</span><span>Quien tome el turno abre el poema con el primer verso.</span></div>`;
+    const peek = g.count ? `<div class="peek"><span class="lbl">Quien escribió antes llegó hasta acá</span><span class="words">${esc(g.peekWords)}</span></div>`
+      : `<div class="peek"><span class="lbl">Hoja en blanco</span><span>Quien tome el turno abre el recorrido con el primer verso.</span></div>`;
 
     let action;
     if (mine) {
       action = `<label class="eyebrow" for="verse">Tu verso</label>
-        <textarea id="verse" maxlength="160" placeholder="Continuá desde esas palabras…">${esc(draft)}</textarea>
+        <textarea id="verse" maxlength="160" placeholder="Seguí el recorrido desde esas palabras…">${esc(draft)}</textarea>
         <div class="field"><label for="place">Desde dónde escribís <span class="small">(opcional)</span></label>
-          <input id="place" maxlength="60" placeholder="Un barrio, una calle, un rincón del territorio" value="${esc(myPlace)}">
-          <span class="hint">Aparece junto a tu nombre cuando se revela el poema.</span></div>
+          <input id="place" maxlength="60" placeholder="Tu ciudad, tu casa, la pantalla desde donde cursaste" value="${esc(myPlace)}">
+          <span class="hint">Aparece junto a tu nombre al revelar el poema y suma tu punto al mapa.</span></div>
+        <div class="dims">
+          <p class="eyebrow">Si no sabés por dónde empezar</p>
+          <p>Escribí desde alguna dimensión del recorrido:</p>
+          <ul>
+            <li><strong>Conceptual</strong>: un concepto, una materia o una herramienta que te llevás.</li>
+            <li><strong>Formativa</strong>: algo que cambió en tu manera de resolver, de hacer o de pensar.</li>
+            <li><strong>Vincular</strong>: los acuerdos, desencuentros y lazos con la comisión, docentes y tutores, pese a la distancia.</li>
+            <li><strong>Emocional</strong>: un miedo, unas ganas, una frustración, un ánimo que te acompañó.</li>
+          </ul>
+        </div>
         <div class="row" style="justify-content:space-between">
           <span class="status-line" id="countdown"></span>
           <span class="row"><button class="btn quiet" data-act="cancel">Soltar el turno</button><button class="btn primary" data-act="send">Doblar y pasar</button></span>
@@ -389,7 +409,7 @@ img { max-width: 100%; }
 
   function render() {
     renderWho();
-    if (!loaded) { app.innerHTML = `<div class="empty"><p class="eyebrow">Cargando</p><p>Buscando las partidas en curso…</p></div>`; return; }
+    if (!loaded) { app.innerHTML = `<div class="empty"><p class="eyebrow">Cargando</p><p>Buscando los recorridos en curso…</p></div>`; return; }
     const r = route();
     if (r.view === 'new') return viewNew();
     if (r.view === 'game') return viewGame(r.gid);
@@ -416,8 +436,8 @@ img { max-width: 100%; }
       if (pl) { myPlace = pl.value.trim().replace(/\s+/g, ' ').slice(0, 60); store.set('cx.place', myPlace); }
       const r = await api(`/api/games/${g.id}/lines`, { text, place: myPlace });
       myTurn = null; draft = '';
-      if (r.done) { justRevealed = g.id; toast('¡Último verso! El poema se despliega.'); }
-      else toast('Hoja doblada. Pasale el enlace a la siguiente persona.');
+      if (r.done) { justRevealed = g.id; toast('¡Último verso! La trayectoria se despliega.'); }
+      else toast('Hoja doblada. Pasale el enlace a la siguiente persona de la comisión.');
     } catch (err) {
       toast(err.message);
       if (/no se guardó/.test(err.message)) myTurn = null;

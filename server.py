@@ -333,7 +333,11 @@ class Handler(BaseHTTPRequestHandler):
                     sign = ", ".join(x for x in (l.get("name"), l.get("place")) if x)
                     block.append(l["text"] + (f"    — {sign}" if sign else ""))
                 parts.append("\n".join(block))
-        text = ("\n\n\n".join(parts) if parts else "Todavía no hay poemas revelados.") + "\n"
+        header = ("CARTOGRAFÍA SENSIBLE · Taller de Integración Final\n"
+                  "Ciclo de Complementación Curricular en Gestión Cultural\n"
+                  "Escuela de Artes, Medios e Innovación · UNLaM\n"
+                  "Cadáver exquisito escrito entre toda la comisión\n\n\n")
+        text = header + ("\n\n\n".join(parts) if parts else "Todavía no hay trayectorias reveladas.") + "\n"
         data = text.encode("utf-8")
         name = f"cadaver-exquisito-{only}.txt" if only else "cadaver-exquisito-poemas.txt"
         self.send_response(200)
