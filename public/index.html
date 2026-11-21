@@ -1,0 +1,508 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cadáver Exquisito</title>
+<meta name="description" content="Juego surrealista para escribir un poema a muchas manos.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%232537C4'/%3E%3Cpath d='M8 9h16M8 14h16M8 19h16M8 24h10' stroke='white' stroke-width='2'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,opsz,wght@0,6..96,500;1,6..96,500;1,6..96,700&family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:ital,wght@0,400;1,400&display=swap">
+<style>
+/* Layout: one narrow column, like a strip of paper; hidden verses are drawn as folds, only the tail of the last verse peeks out. */
+:root {
+  --paper: #ECEEF3;
+  --sheet: #FBFCFE;
+  --ink: #15182C;
+  --muted: #5C6179;
+  --rule: #D3D8E3;
+  --fold: #E1E5EE;
+  --fold-edge: #C5CBDA;
+  --accent: #2537C4;
+  --accent-ink: #FFFFFF;
+  --warn: #A8411B;
+  --font-display: "Bodoni Moda", "Didot", "Bodoni 72", Georgia, serif;
+  --font-body: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0D0F1E; --sheet: #161A2F; --ink: #E7E9F5; --muted: #9AA0BB;
+    --rule: #2A2F4C; --fold: #1F2440; --fold-edge: #343A5E;
+    --accent: #8290FF; --accent-ink: #0D0F1E; --warn: #F08C60;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0D0F1E; --sheet: #161A2F; --ink: #E7E9F5; --muted: #9AA0BB;
+  --rule: #2A2F4C; --fold: #1F2440; --fold-edge: #343A5E;
+  --accent: #8290FF; --accent-ink: #0D0F1E; --warn: #F08C60;
+  color-scheme: dark;
+}
+html, body { min-height: 100%; }
+body {
+  background: var(--paper); color: var(--ink);
+  font-family: var(--font-body); font-size: 16px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 64px;
+}
+.wrap { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px; }
+a { color: var(--accent); }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Header */
+.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px; border-bottom: 1px solid var(--rule); padding-bottom: 18px; }
+.brand { font-family: var(--font-display); font-weight: 500; font-size: clamp(2.4rem, 8vw, 3.6rem); line-height: .9; text-decoration: none; color: var(--ink); letter-spacing: -.01em; }
+.brand i { font-weight: 700; color: var(--accent); }
+.tag { margin: 0; max-width: 32ch; color: var(--muted); font-size: .95rem; }
+
+.notice { background: var(--sheet); border: 1px solid var(--rule); border-left: 3px solid var(--warn); padding: 12px 14px; border-radius: 4px; font-size: .95rem; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(20px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--paper); padding: 10px 16px; border-radius: 4px; font-size: .92rem; max-width: calc(100% - 32px); z-index: 20; }
+
+/* Buttons */
+.btn { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--ink); background: transparent; padding: 10px 16px; border-radius: 999px; cursor: pointer; font-weight: 500; text-decoration: none; color: var(--ink); }
+.btn:hover { background: var(--sheet); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.quiet { border-color: var(--rule); color: var(--muted); }
+.btn.danger { border-color: var(--warn); color: var(--warn); }
+.btn[disabled] { opacity: .45; cursor: not-allowed; }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+
+.eyebrow { font-family: var(--font-mono); font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 0; }
+h2 { font-family: var(--font-display); font-weight: 500; font-style: italic; font-size: 1.7rem; margin: 0; text-wrap: balance; line-height: 1.1; }
+.section { display: flex; flex-direction: column; gap: 14px; }
+.section-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+
+/* Lobby cards */
+.list { display: flex; flex-direction: column; gap: 10px; }
+.card { display: grid; grid-template-columns: 1fr auto; gap: 6px 16px; align-items: center; background: var(--sheet); border: 1px solid var(--rule); padding: 14px 16px; border-radius: 4px; text-decoration: none; color: var(--ink); }
+.card:hover { border-color: var(--accent); }
+.card .t { font-family: var(--font-display); font-size: 1.25rem; font-style: italic; min-width: 0; overflow-wrap: anywhere; }
+.card .meta { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: .85rem; color: var(--muted); }
+.folds { display: flex; gap: 3px; }
+.folds span { width: 10px; height: 14px; border: 1px solid var(--fold-edge); background: transparent; border-radius: 1px; }
+.folds span.on { background: var(--accent); border-color: var(--accent); }
+.chip { font-family: var(--font-mono); font-size: .72rem; padding: 2px 8px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
+.chip.live { color: var(--accent); }
+.chip.done { color: var(--muted); }
+
+.empty { background: var(--sheet); border: 1px dashed var(--fold-edge); border-radius: 4px; padding: 28px 20px; display: grid; gap: 14px; justify-items: start; }
+.empty p { margin: 0; color: var(--muted); max-width: 52ch; }
+.rules { margin: 0; padding-left: 1.2em; color: var(--muted); display: grid; gap: 4px; font-size: .95rem; }
+
+/* Form */
+form.new { background: var(--sheet); border: 1px solid var(--rule); border-radius: 4px; padding: 20px; display: grid; gap: 18px; }
+.field { display: grid; gap: 6px; }
+.field label { font-weight: 600; font-size: .92rem; }
+.field .hint { color: var(--muted); font-size: .85rem; }
+.field input, .field select { background: var(--paper); border: 1px solid var(--rule); padding: 10px 12px; border-radius: 4px; width: 100%; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 520px) { .two { grid-template-columns: 1fr; } }
+
+/* The paper strip */
+.strip { background: var(--sheet); border: 1px solid var(--rule); border-radius: 3px; box-shadow: 0 1px 0 var(--rule), 0 12px 30px -18px rgba(20,24,60,.35); overflow: hidden; }
+.strip-head { padding: 18px 20px 14px; display: grid; gap: 6px; border-bottom: 1px solid var(--rule); }
+.fold-stack { display: flex; flex-direction: column; }
+.fold-band { height: 18px; background:
+  repeating-linear-gradient(135deg, transparent 0 6px, var(--fold-edge) 6px 7px), var(--fold);
+  border-bottom: 1px solid var(--fold-edge); opacity: .9; }
+.fold-band:nth-child(odd) { background:
+  repeating-linear-gradient(45deg, transparent 0 6px, var(--fold-edge) 6px 7px), var(--fold); }
+.peek { padding: 18px 20px; font-family: var(--font-mono); font-size: 1.05rem; border-bottom: 1px dashed var(--fold-edge); display: grid; gap: 4px; }
+.peek .lbl { font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.peek .words { overflow-wrap: anywhere; }
+.peek .words::before { content: "… "; color: var(--muted); }
+.write { padding: 18px 20px 20px; display: grid; gap: 12px; }
+.write textarea { width: 100%; min-height: 96px; resize: vertical; background: transparent; border: none; border-bottom: 1px solid var(--rule); padding: 6px 0; font-family: var(--font-display); font-size: 1.4rem; line-height: 1.35; font-style: italic; }
+.write textarea:focus { outline: none; border-bottom-color: var(--accent); }
+.status-line { font-size: .9rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.status-line strong { color: var(--ink); font-weight: 600; }
+.writing-now { color: var(--accent); font-weight: 500; }
+
+/* Revealed poem */
+.poem { background: var(--sheet); border: 1px solid var(--rule); border-radius: 3px; padding: 28px 24px; display: grid; gap: 2px; perspective: 900px; }
+.verse { display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; align-items: baseline; padding: 8px 0; border-bottom: 1px solid var(--rule); transform-origin: top center; }
+.verse:last-child { border-bottom: none; }
+.verse .v { font-family: var(--font-display); font-size: clamp(1.2rem, 4vw, 1.6rem); line-height: 1.3; min-width: 0; overflow-wrap: anywhere; }
+.verse .who { font-size: .8rem; color: var(--muted); white-space: nowrap; }
+@media (max-width: 520px) { .verse { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: no-preference) {
+  .poem.unfold .verse { animation: unfold .6s cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(var(--i) * 140ms); }
+  @keyframes unfold { from { transform: rotateX(-80deg); opacity: .35; } to { transform: none; opacity: 1; } }
+}
+.back { font-size: .92rem; text-decoration: none; }
+.small { font-size: .85rem; color: var(--muted); }
+
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; }
+:root { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+[hidden] { display: none !important; }
+img { max-width: 100%; }
+.foot { border-top: 1px solid var(--rule); padding-top: 14px; font-size: .85rem; color: var(--muted); }
+.foot strong { color: var(--ink); }
+.link { background: none; border: none; padding: 0; color: var(--accent); text-decoration: underline; cursor: pointer; font-size: inherit; }
+.write .field input { background: var(--paper); border: 1px solid var(--rule); padding: 10px 12px; border-radius: 4px; width: 100%; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a href="#" class="brand">Cadáver<br><i>exquisito</i></a>
+    <p class="tag">Escribe a muchas manos. Cada quien ve solo las últimas palabras del verso anterior; el poema entero se despliega al final.</p>
+  </header>
+  <div id="notice" class="notice" hidden></div>
+  <main id="app" aria-live="polite"></main>
+  <footer class="foot"><span id="whoami"></span></footer>
+</div>
+<div id="toast" class="toast" hidden></div>
+
+<script>
+(() => {
+  const app = document.getElementById('app');
+  const notice = document.getElementById('notice');
+  const toastEl = document.getElementById('toast');
+  const whoami = document.getElementById('whoami');
+
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (_) { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) {} }
+  };
+  const rid = n => { const a = new Uint8Array(n); crypto.getRandomValues(a); return Array.from(a, b => b.toString(16).padStart(2, '0')).join(''); };
+
+  let playerId = store.get('cx.player', null);
+  if (!playerId) { playerId = rid(16); store.set('cx.player', playerId); }
+  let myName = store.get('cx.name', '');
+  let created = new Set(store.get('cx.created', []));
+
+  let games = [], loaded = false, offset = 0;   // offset = serverTime - Date.now()/1000
+  let myTurn = null;          // {gid, until}
+  let draft = '';
+  let armed = null;
+  let justRevealed = null;
+  let busy = false;
+
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const nowS = () => Date.now() / 1000 + offset;
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+  function toast(msg) {
+    toastEl.textContent = msg; toastEl.hidden = false;
+    clearTimeout(toast._t); toast._t = setTimeout(() => toastEl.hidden = true, 4500);
+  }
+  function setNotice(msg) { notice.hidden = !msg; notice.textContent = msg || ''; }
+  function renderWho() {
+    whoami.innerHTML = myName
+      ? `Juegas como <strong>${esc(myName)}</strong> · <button class="link" data-act="rename">cambiar nombre</button>`
+      : 'Todavía no elegiste un nombre. Te lo pediré al tomar tu primer turno.';
+  }
+
+  async function api(path, body) {
+    const res = await fetch(path, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ playerId, name: myName, ...body })
+    });
+    let data = {}; try { data = await res.json(); } catch (_) {}
+    if (!res.ok) throw new Error(data.error || 'No se pudo conectar con el servidor. Inténtalo de nuevo.');
+    return data;
+  }
+
+  function route() {
+    const h = decodeURIComponent(location.hash.slice(1));
+    if (h === 'nueva') return { view: 'new' };
+    if (h.startsWith('p-')) return { view: 'game', gid: h.slice(2) };
+    return { view: 'lobby' };
+  }
+
+  function folds(g) {
+    let s = '<span class="folds" aria-hidden="true">';
+    for (let i = 0; i < g.turns; i++) s += `<span class="${i < g.count ? 'on' : ''}"></span>`;
+    return s + '</span>';
+  }
+  const othersWriting = g => g.writing && g.writingUntil > nowS() && !(myTurn && myTurn.gid === g.id);
+
+  /* ---------- Views ---------- */
+  function viewLobby() {
+    const open = games.filter(g => g.status !== 'done');
+    const done = games.filter(g => g.status === 'done');
+    const card = g => {
+      const chip = g.status === 'done' ? '<span class="chip done">revelado</span>'
+        : othersWriting(g) ? '<span class="chip live">alguien escribe</span>'
+        : `<span class="chip live">${g.count === 0 ? 'sin empezar' : 'turno libre'}</span>`;
+      return `<a class="card" href="#p-${esc(g.id)}">
+        <span class="t">${esc(g.title)}</span>${chip}
+        <span class="meta">${folds(g)}<span>${g.count} de ${g.turns} versos</span><span>${plural(g.peek, 'palabra visible', 'palabras visibles')}</span>${g.createdByName ? `<span>abrió ${esc(g.createdByName)}</span>` : ''}</span>
+      </a>`;
+    };
+    const newBtn = `<a class="btn primary" href="#nueva">Nueva partida</a>`;
+    if (!games.length) {
+      app.innerHTML = `<section class="empty">
+        <p class="eyebrow">Todavía no hay partidas</p>
+        <h2>Dobla la primera hoja</h2>
+        <ol class="rules">
+          <li>Alguien abre una partida y elige cuántos versos tendrá.</li>
+          <li>Cada persona toma el turno y ve solo las últimas palabras del verso anterior.</li>
+          <li>Al completar los versos, el poema se despliega con todas las firmas.</li>
+        </ol>
+        ${newBtn}
+      </section>`;
+      return;
+    }
+    app.innerHTML = `
+      <section class="section">
+        <div class="section-head"><h2>En juego</h2>${newBtn}</div>
+        <div class="list">${open.length ? open.map(card).join('') : '<p class="small">No hay partidas abiertas. Empieza una nueva.</p>'}</div>
+      </section>
+      ${done.length ? `<section class="section"><div class="section-head"><h2>Poemas revelados</h2></div><div class="list">${done.map(card).join('')}</div></section>` : ''}`;
+  }
+
+  function nameField(id) {
+    return `<div class="field"><label for="${id}">Tu nombre</label>
+      <input id="${id}" maxlength="40" autocomplete="nickname" placeholder="Cómo firmarás tus versos" value="${esc(myName)}">
+      <span class="hint">Aparece junto a tus versos cuando se revela el poema. No hace falta cuenta.</span></div>`;
+  }
+  function readName(id) {
+    const el = document.getElementById(id);
+    if (!el) return true;
+    const v = el.value.trim().replace(/\s+/g, ' ');
+    if (!v) { toast('Escribe tu nombre para firmar.'); el.focus(); return false; }
+    myName = v.slice(0, 40); store.set('cx.name', myName); renderWho();
+    return true;
+  }
+
+  function viewNew() {
+    app.innerHTML = `<a class="back" href="#">← Volver</a>
+      <form class="new" id="newForm">
+        <div><p class="eyebrow">Nueva partida</p><h2>Prepara la hoja</h2></div>
+        <div class="field"><label for="f-title">Título</label>
+          <input id="f-title" maxlength="80" placeholder="El cadáver exquisito beberá el vino nuevo"></div>
+        <div class="two">
+          <div class="field"><label for="f-turns">Versos</label>
+            <select id="f-turns">${[4,6,8,10,12,16].map(n => `<option value="${n}" ${n===8?'selected':''}>${n} versos</option>`).join('')}</select>
+            <span class="hint">El poema se revela al llegar a este número.</span></div>
+          <div class="field"><label for="f-peek">Palabras visibles</label>
+            <select id="f-peek">${[1,2,3,4,5].map(n => `<option value="${n}" ${n===3?'selected':''}>${n}</option>`).join('')}</select>
+            <span class="hint">Cuántas palabras del verso anterior ve quien escribe.</span></div>
+        </div>
+        ${myName ? '' : nameField('f-name')}
+        <div class="row"><button class="btn primary" type="submit">Abrir partida</button><a class="btn quiet" href="#">Cancelar</a></div>
+      </form>`;
+    document.getElementById('newForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      if (busy || !readName('f-name')) return; busy = true;
+      try {
+        const r = await api('/api/games', {
+          title: document.getElementById('f-title').value,
+          turns: +document.getElementById('f-turns').value,
+          peek: +document.getElementById('f-peek').value
+        });
+        created.add(r.id); store.set('cx.created', [...created]);
+        location.hash = 'p-' + r.id;
+        toast('Partida abierta. Copia el enlace y compártelo.');
+      } catch (err) { toast(err.message); }
+      busy = false;
+    });
+  }
+
+  function viewGame(gid) {
+    const g = games.find(x => x.id === gid);
+    if (!g) {
+      app.innerHTML = `<a class="back" href="#">← Volver</a><div class="empty"><p class="eyebrow">No encontrada</p><p>Esta partida no existe o fue borrada.</p></div>`;
+      return;
+    }
+    const share = `<button class="btn" data-act="share">Copiar enlace de la partida</button>`;
+    const mineGame = created.has(gid);
+    const manage = mineGame ? `<div class="row">
+        ${g.status !== 'done' && g.count ? `<button class="btn quiet" data-act="reveal">${armed === 'reveal:' + gid ? '¿Seguro? Revelar ahora' : 'Revelar antes de tiempo'}</button>` : ''}
+        <button class="btn ${armed === 'delete:' + gid ? 'danger' : 'quiet'}" data-act="delete">${armed === 'delete:' + gid ? '¿Seguro? Borrar partida' : 'Borrar'}</button>
+      </div>` : '';
+
+    if (g.status === 'done') {
+      const anim = justRevealed === gid; justRevealed = null;
+      const lines = g.lines || [];
+      app.innerHTML = `<a class="back" href="#">← Todas las partidas</a>
+        <div class="section">
+          <div><p class="eyebrow">Revelado · ${plural(lines.length, 'verso', 'versos')} · ${plural(g.hands, 'mano', 'manos')}</p><h2>${esc(g.title)}</h2></div>
+          <div class="poem ${anim ? 'unfold' : ''}">
+            ${lines.length ? lines.map((l, i) => `<div class="verse" style="--i:${i}"><span class="v">${esc(l.text)}</span><span class="who">${esc(l.name || 'Anónimo')}</span></div>`).join('') : '<p class="small">Nadie llegó a escribir.</p>'}
+          </div>
+          <div class="row"><button class="btn" data-act="copy">Copiar poema</button>${share}<a class="btn primary" href="#nueva">Jugar otra</a></div>
+          ${manage}
+        </div>`;
+      return;
+    }
+
+    const mine = myTurn && myTurn.gid === gid;
+    const other = othersWriting(g);
+    const peek = g.count ? `<div class="peek"><span class="lbl">El verso anterior termina así</span><span class="words">${esc(g.peekWords)}</span></div>`
+      : `<div class="peek"><span class="lbl">Hoja en blanco</span><span>Quien tome el turno abre el poema con el primer verso.</span></div>`;
+
+    let action;
+    if (mine) {
+      action = `<label class="eyebrow" for="verse">Tu verso</label>
+        <textarea id="verse" maxlength="160" placeholder="Continúa desde esas palabras…">${esc(draft)}</textarea>
+        <div class="row" style="justify-content:space-between">
+          <span class="status-line" id="countdown"></span>
+          <span class="row"><button class="btn quiet" data-act="cancel">Soltar el turno</button><button class="btn primary" data-act="send">Doblar y pasar</button></span>
+        </div>`;
+    } else if (other) {
+      const mins = Math.max(1, Math.ceil((g.writingUntil - nowS()) / 60));
+      action = `<p class="status-line"><span class="writing-now">${esc(g.writingName || 'Alguien')} está escribiendo.</span> El turno se libera cuando termine o en ${mins} min como máximo.</p>
+        <div class="row"><button class="btn" disabled>Esperando turno</button></div>`;
+    } else {
+      action = `${myName ? '' : nameField('t-name')}
+        <p class="status-line">Tendrás <strong>4 minutos</strong> para escribir. Mientras tanto nadie más puede tomar el turno.</p>
+        <div class="row"><button class="btn primary" data-act="take">Tomar el turno</button></div>`;
+    }
+
+    app.innerHTML = `<a class="back" href="#">← Todas las partidas</a>
+      <article class="strip">
+        <div class="strip-head">
+          <p class="eyebrow">${g.count} de ${g.turns} versos · ${plural(g.peek, 'palabra visible', 'palabras visibles')}</p>
+          <h2>${esc(g.title)}</h2>
+          ${folds(g)}
+        </div>
+        ${g.count > 1 ? `<div class="fold-stack" aria-label="${plural(g.count - 1, 'verso doblado', 'versos doblados')}">${'<div class="fold-band"></div>'.repeat(g.count - 1)}</div>` : ''}
+        ${peek}
+        <div class="write">${action}</div>
+      </article>
+      <div class="row">${share}</div>
+      ${manage}`;
+    if (mine) {
+      const ta = document.getElementById('verse');
+      ta.addEventListener('input', () => { draft = ta.value; });
+      ta.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); send(g); } });
+      ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
+      tick();
+    }
+  }
+
+  function render() {
+    renderWho();
+    if (!loaded) { app.innerHTML = `<div class="empty"><p class="eyebrow">Cargando</p><p>Buscando las partidas en curso…</p></div>`; return; }
+    const r = route();
+    if (r.view === 'new') return viewNew();
+    if (r.view === 'game') return viewGame(r.gid);
+    return viewLobby();
+  }
+
+  /* ---------- Actions ---------- */
+  async function take(g) {
+    if (busy || !readName('t-name')) return; busy = true;
+    try {
+      const r = await api(`/api/games/${g.id}/take`, {});
+      myTurn = { gid: g.id, until: r.until }; draft = '';
+      g.peekWords = r.peekWords;
+    } catch (err) { toast(err.message); }
+    busy = false; render();
+  }
+
+  async function send(g) {
+    const text = draft.trim().replace(/\s+/g, ' ');
+    if (!text) { toast('Escribe algo antes de doblar la hoja.'); return; }
+    if (busy) return; busy = true;
+    try {
+      const r = await api(`/api/games/${g.id}/lines`, { text });
+      myTurn = null; draft = '';
+      if (r.done) { justRevealed = g.id; toast('¡Último verso! El poema se despliega.'); }
+      else toast('Hoja doblada. Pásale el enlace a la siguiente persona.');
+    } catch (err) {
+      toast(err.message);
+      if (/no se guardó/.test(err.message)) myTurn = null;
+    }
+    busy = false; render();
+  }
+
+  async function cancel(g) {
+    myTurn = null; draft = ''; render();
+    try { await api(`/api/games/${g.id}/release`, {}); } catch (_) {}
+  }
+
+  async function reveal(g) {
+    if (armed !== 'reveal:' + g.id) { armed = 'reveal:' + g.id; render(); return; }
+    armed = null; justRevealed = g.id;
+    try { await api(`/api/games/${g.id}/reveal`, {}); } catch (err) { toast(err.message); }
+  }
+
+  async function del(g) {
+    if (armed !== 'delete:' + g.id) { armed = 'delete:' + g.id; render(); return; }
+    armed = null;
+    try {
+      await api(`/api/games/${g.id}/delete`, {});
+      created.delete(g.id); store.set('cx.created', [...created]);
+      location.hash = ''; toast('Partida borrada.');
+    } catch (err) { toast(err.message); }
+  }
+
+  async function copyText(text, okMsg, selectEl) {
+    try { await navigator.clipboard.writeText(text); toast(okMsg); }
+    catch (_) {
+      if (selectEl) { const r = document.createRange(); r.selectNodeContents(selectEl); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
+      toast('No pude copiar solo. Cópialo a mano: ' + (selectEl ? 'ya está seleccionado.' : text));
+    }
+  }
+
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-act]'); if (!b) return;
+    const act = b.dataset.act;
+    if (act === 'rename') {
+      myName = ''; store.set('cx.name', ''); render(); return;
+    }
+    const r = route(); const g = games.find(x => x.id === r.gid); if (!g) return;
+    if (act === 'take') take(g);
+    else if (act === 'send') send(g);
+    else if (act === 'cancel') cancel(g);
+    else if (act === 'reveal') reveal(g);
+    else if (act === 'delete') del(g);
+    else if (act === 'share') copyText(location.origin + location.pathname + '#p-' + g.id, 'Enlace copiado. Mándalo a quien siga.');
+    else if (act === 'copy') copyText(`${g.title}\n\n` + (g.lines || []).map(l => l.text).join('\n'), 'Poema copiado.', document.querySelector('.poem'));
+  });
+
+  function tick() {
+    const el = document.getElementById('countdown');
+    if (!el || !myTurn) return;
+    const s = Math.round(myTurn.until - nowS());
+    if (s <= 0) { el.innerHTML = '<span style="color:var(--warn)">Se acabó el tiempo. Envía rápido: si nadie tomó el turno, aún entra.</span>'; return; }
+    el.innerHTML = `Te quedan <strong>${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}</strong> · ⌘/Ctrl + Enter para enviar`;
+  }
+  setInterval(tick, 1000);
+  setInterval(() => { if (!myTurn && loaded && !document.activeElement?.matches('input, select, textarea')) render(); }, 15000);
+
+  window.addEventListener('hashchange', () => { armed = null; render(); window.scrollTo(0, 0); });
+
+  /* ---------- Live data ---------- */
+  function apply(data) {
+    offset = data.serverTime - Date.now() / 1000;
+    const prev = new Map(games.map(g => [g.id, g.status]));
+    games = data.games;
+    const r = route();
+    if (r.view === 'game' && prev.get(r.gid) === 'open' && games.find(g => g.id === r.gid)?.status === 'done') justRevealed = r.gid;
+    if (myTurn) {
+      const g = games.find(x => x.id === myTurn.gid);
+      if (!g || g.status === 'done') { myTurn = null; toast('La partida se cerró mientras escribías.'); }
+    }
+    loaded = true; setNotice('');
+    const typing = document.activeElement?.matches('input, select, textarea');
+    if (!(myTurn && r.gid === myTurn.gid) && !(typing && r.view === 'new')) render();
+  }
+
+  let es = null, retry = null;
+  function connect() {
+    try { es && es.close(); } catch (_) {}
+    es = new EventSource('/api/events');
+    es.onmessage = ev => { try { apply(JSON.parse(ev.data)); } catch (_) {} };
+    es.onerror = () => {
+      setNotice('Se cortó la conexión con el servidor. Reconectando…');
+      clearTimeout(retry); retry = setTimeout(() => { if (es.readyState === 2) connect(); }, 4000);
+    };
+  }
+  render();
+  fetch('/api/games').then(r => r.json()).then(apply).catch(() => setNotice('No se pudo conectar con el servidor. Reintentando…'));
+  connect();
+})();
+</script>
+</body>
+</html>
