@@ -83,7 +83,7 @@ h2 { font-family: var(--font-display); font-weight: 500; font-style: italic; fon
 .card:hover { border-color: var(--accent); }
 .card .t { font-family: var(--font-display); font-size: 1.25rem; font-style: italic; min-width: 0; overflow-wrap: anywhere; }
 .card .meta { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: .85rem; color: var(--muted); }
-.folds { display: flex; gap: 3px; }
+.folds { display: flex; flex-wrap: wrap; gap: 3px; max-width: 100%; }
 .folds span { width: 10px; height: 14px; border: 1px solid var(--fold-edge); background: transparent; border-radius: 1px; }
 .folds span.on { background: var(--accent); border-color: var(--accent); }
 .chip { font-family: var(--font-mono); font-size: .72rem; padding: 2px 8px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
@@ -110,6 +110,7 @@ form.new { background: var(--sheet); border: 1px solid var(--rule); border-radiu
 .fold-band { height: 18px; background:
   repeating-linear-gradient(135deg, transparent 0 6px, var(--fold-edge) 6px 7px), var(--fold);
   border-bottom: 1px solid var(--fold-edge); opacity: .9; }
+.fold-stack.dense .fold-band { height: 6px; }
 .fold-band:nth-child(odd) { background:
   repeating-linear-gradient(45deg, transparent 0 6px, var(--fold-edge) 6px 7px), var(--fold); }
 .peek { padding: 18px 20px; font-family: var(--font-mono); font-size: 1.05rem; border-bottom: 1px dashed var(--fold-edge); display: grid; gap: 4px; }
@@ -128,7 +129,9 @@ form.new { background: var(--sheet); border: 1px solid var(--rule); border-radiu
 .verse { display: grid; grid-template-columns: 1fr auto; gap: 4px 16px; align-items: baseline; padding: 8px 0; border-bottom: 1px solid var(--rule); transform-origin: top center; }
 .verse:last-child { border-bottom: none; }
 .verse .v { font-family: var(--font-display); font-size: clamp(1.2rem, 4vw, 1.6rem); line-height: 1.3; min-width: 0; overflow-wrap: anywhere; }
-.verse .who { font-size: .8rem; color: var(--muted); white-space: nowrap; }
+.verse .who { font-size: .8rem; color: var(--muted); text-align: right; }
+.verse .who .place { display: block; font-style: italic; }
+@media (max-width: 520px) { .verse .who { text-align: left; } }
 @media (max-width: 520px) { .verse { grid-template-columns: 1fr; } }
 @media (prefers-reduced-motion: no-preference) {
   .poem.unfold .verse { animation: unfold .6s cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(var(--i) * 140ms); }
@@ -152,7 +155,7 @@ img { max-width: 100%; }
 <div class="wrap">
   <header class="top">
     <a href="#" class="brand">Cadáver<br><i>exquisito</i></a>
-    <p class="tag">Escribe a muchas manos. Cada quien ve solo las últimas palabras del verso anterior; el poema entero se despliega al final.</p>
+    <p class="tag">Escribí a muchas manos. Cada quien ve solo las últimas palabras del verso anterior; el poema entero se despliega al final.</p>
   </header>
   <div id="notice" class="notice" hidden></div>
   <main id="app" aria-live="polite"></main>
@@ -176,6 +179,7 @@ img { max-width: 100%; }
   let playerId = store.get('cx.player', null);
   if (!playerId) { playerId = rid(16); store.set('cx.player', playerId); }
   let myName = store.get('cx.name', '');
+  let myPlace = store.get('cx.place', '');
   let created = new Set(store.get('cx.created', []));
 
   let games = [], loaded = false, offset = 0;   // offset = serverTime - Date.now()/1000
@@ -196,7 +200,7 @@ img { max-width: 100%; }
   function setNotice(msg) { notice.hidden = !msg; notice.textContent = msg || ''; }
   function renderWho() {
     whoami.innerHTML = myName
-      ? `Juegas como <strong>${esc(myName)}</strong> · <button class="link" data-act="rename">cambiar nombre</button>`
+      ? `Jugás como <strong>${esc(myName)}</strong> · <button class="link" data-act="rename">cambiar nombre</button>`
       : 'Todavía no elegiste un nombre. Te lo pediré al tomar tu primer turno.';
   }
 
@@ -206,7 +210,7 @@ img { max-width: 100%; }
       body: JSON.stringify({ playerId, name: myName, ...body })
     });
     let data = {}; try { data = await res.json(); } catch (_) {}
-    if (!res.ok) throw new Error(data.error || 'No se pudo conectar con el servidor. Inténtalo de nuevo.');
+    if (!res.ok) throw new Error(data.error || 'No se pudo conectar con el servidor. Intentalo de nuevo.');
     return data;
   }
 
@@ -241,7 +245,7 @@ img { max-width: 100%; }
     if (!games.length) {
       app.innerHTML = `<section class="empty">
         <p class="eyebrow">Todavía no hay partidas</p>
-        <h2>Dobla la primera hoja</h2>
+        <h2>Doblá la primera hoja</h2>
         <ol class="rules">
           <li>Alguien abre una partida y elige cuántos versos tendrá.</li>
           <li>Cada persona toma el turno y ve solo las últimas palabras del verso anterior.</li>
@@ -254,9 +258,9 @@ img { max-width: 100%; }
     app.innerHTML = `
       <section class="section">
         <div class="section-head"><h2>En juego</h2>${newBtn}</div>
-        <div class="list">${open.length ? open.map(card).join('') : '<p class="small">No hay partidas abiertas. Empieza una nueva.</p>'}</div>
+        <div class="list">${open.length ? open.map(card).join('') : '<p class="small">No hay partidas abiertas. Empezá una nueva.</p>'}</div>
       </section>
-      ${done.length ? `<section class="section"><div class="section-head"><h2>Poemas revelados</h2></div><div class="list">${done.map(card).join('')}</div></section>` : ''}`;
+      ${done.length ? `<section class="section"><div class="section-head"><h2>Poemas revelados</h2><a class="btn" href="/api/export.txt" download>Descargar todos (.txt)</a></div><div class="list">${done.map(card).join('')}</div></section>` : ''}`;
   }
 
   function nameField(id) {
@@ -268,7 +272,7 @@ img { max-width: 100%; }
     const el = document.getElementById(id);
     if (!el) return true;
     const v = el.value.trim().replace(/\s+/g, ' ');
-    if (!v) { toast('Escribe tu nombre para firmar.'); el.focus(); return false; }
+    if (!v) { toast('Escribí tu nombre para firmar.'); el.focus(); return false; }
     myName = v.slice(0, 40); store.set('cx.name', myName); renderWho();
     return true;
   }
@@ -276,12 +280,12 @@ img { max-width: 100%; }
   function viewNew() {
     app.innerHTML = `<a class="back" href="#">← Volver</a>
       <form class="new" id="newForm">
-        <div><p class="eyebrow">Nueva partida</p><h2>Prepara la hoja</h2></div>
+        <div><p class="eyebrow">Nueva partida</p><h2>Prepará la hoja</h2></div>
         <div class="field"><label for="f-title">Título</label>
           <input id="f-title" maxlength="80" placeholder="El cadáver exquisito beberá el vino nuevo"></div>
         <div class="two">
           <div class="field"><label for="f-turns">Versos</label>
-            <select id="f-turns">${[4,6,8,10,12,16].map(n => `<option value="${n}" ${n===8?'selected':''}>${n} versos</option>`).join('')}</select>
+            <select id="f-turns">${[4,6,8,10,12,16,20,25,30,35,40].map(n => `<option value="${n}" ${n===35?'selected':''}>${n} versos</option>`).join('')}</select>
             <span class="hint">El poema se revela al llegar a este número.</span></div>
           <div class="field"><label for="f-peek">Palabras visibles</label>
             <select id="f-peek">${[1,2,3,4,5].map(n => `<option value="${n}" ${n===3?'selected':''}>${n}</option>`).join('')}</select>
@@ -301,7 +305,7 @@ img { max-width: 100%; }
         });
         created.add(r.id); store.set('cx.created', [...created]);
         location.hash = 'p-' + r.id;
-        toast('Partida abierta. Copia el enlace y compártelo.');
+        toast('Partida abierta. Copiá el enlace y compartilo.');
       } catch (err) { toast(err.message); }
       busy = false;
     });
@@ -327,9 +331,9 @@ img { max-width: 100%; }
         <div class="section">
           <div><p class="eyebrow">Revelado · ${plural(lines.length, 'verso', 'versos')} · ${plural(g.hands, 'mano', 'manos')}</p><h2>${esc(g.title)}</h2></div>
           <div class="poem ${anim ? 'unfold' : ''}">
-            ${lines.length ? lines.map((l, i) => `<div class="verse" style="--i:${i}"><span class="v">${esc(l.text)}</span><span class="who">${esc(l.name || 'Anónimo')}</span></div>`).join('') : '<p class="small">Nadie llegó a escribir.</p>'}
+            ${lines.length ? lines.map((l, i) => `<div class="verse" style="--i:${i}"><span class="v">${esc(l.text)}</span><span class="who">${esc(l.name || 'Anónimo')}${l.place ? `<span class="place">${esc(l.place)}</span>` : ''}</span></div>`).join('') : '<p class="small">Nadie llegó a escribir.</p>'}
           </div>
-          <div class="row"><button class="btn" data-act="copy">Copiar poema</button>${share}<a class="btn primary" href="#nueva">Jugar otra</a></div>
+          <div class="row"><button class="btn" data-act="copy">Copiar poema</button><a class="btn" href="/api/export.txt?id=${esc(g.id)}" download>Descargar poema (.txt)</a>${share}</div>
           ${manage}
         </div>`;
       return;
@@ -343,7 +347,10 @@ img { max-width: 100%; }
     let action;
     if (mine) {
       action = `<label class="eyebrow" for="verse">Tu verso</label>
-        <textarea id="verse" maxlength="160" placeholder="Continúa desde esas palabras…">${esc(draft)}</textarea>
+        <textarea id="verse" maxlength="160" placeholder="Continuá desde esas palabras…">${esc(draft)}</textarea>
+        <div class="field"><label for="place">Desde dónde escribís <span class="small">(opcional)</span></label>
+          <input id="place" maxlength="60" placeholder="Un barrio, una calle, un rincón del territorio" value="${esc(myPlace)}">
+          <span class="hint">Aparece junto a tu nombre cuando se revela el poema.</span></div>
         <div class="row" style="justify-content:space-between">
           <span class="status-line" id="countdown"></span>
           <span class="row"><button class="btn quiet" data-act="cancel">Soltar el turno</button><button class="btn primary" data-act="send">Doblar y pasar</button></span>
@@ -365,7 +372,7 @@ img { max-width: 100%; }
           <h2>${esc(g.title)}</h2>
           ${folds(g)}
         </div>
-        ${g.count > 1 ? `<div class="fold-stack" aria-label="${plural(g.count - 1, 'verso doblado', 'versos doblados')}">${'<div class="fold-band"></div>'.repeat(g.count - 1)}</div>` : ''}
+        ${g.count > 1 ? `<div class="fold-stack ${g.count > 12 ? 'dense' : ''}" aria-label="${plural(g.count - 1, 'verso doblado', 'versos doblados')}">${'<div class="fold-band"></div>'.repeat(g.count - 1)}</div>` : ''}
         ${peek}
         <div class="write">${action}</div>
       </article>
@@ -402,13 +409,15 @@ img { max-width: 100%; }
 
   async function send(g) {
     const text = draft.trim().replace(/\s+/g, ' ');
-    if (!text) { toast('Escribe algo antes de doblar la hoja.'); return; }
+    if (!text) { toast('Escribí algo antes de doblar la hoja.'); return; }
     if (busy) return; busy = true;
     try {
-      const r = await api(`/api/games/${g.id}/lines`, { text });
+      const pl = document.getElementById('place');
+      if (pl) { myPlace = pl.value.trim().replace(/\s+/g, ' ').slice(0, 60); store.set('cx.place', myPlace); }
+      const r = await api(`/api/games/${g.id}/lines`, { text, place: myPlace });
       myTurn = null; draft = '';
       if (r.done) { justRevealed = g.id; toast('¡Último verso! El poema se despliega.'); }
-      else toast('Hoja doblada. Pásale el enlace a la siguiente persona.');
+      else toast('Hoja doblada. Pasale el enlace a la siguiente persona.');
     } catch (err) {
       toast(err.message);
       if (/no se guardó/.test(err.message)) myTurn = null;
@@ -441,7 +450,7 @@ img { max-width: 100%; }
     try { await navigator.clipboard.writeText(text); toast(okMsg); }
     catch (_) {
       if (selectEl) { const r = document.createRange(); r.selectNodeContents(selectEl); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
-      toast('No pude copiar solo. Cópialo a mano: ' + (selectEl ? 'ya está seleccionado.' : text));
+      toast('No pude copiarlo. Copialo a mano: ' + (selectEl ? 'ya está seleccionado.' : text));
     }
   }
 
@@ -457,7 +466,7 @@ img { max-width: 100%; }
     else if (act === 'cancel') cancel(g);
     else if (act === 'reveal') reveal(g);
     else if (act === 'delete') del(g);
-    else if (act === 'share') copyText(location.origin + location.pathname + '#p-' + g.id, 'Enlace copiado. Mándalo a quien siga.');
+    else if (act === 'share') copyText(location.origin + location.pathname + '#p-' + g.id, 'Enlace copiado. Mandalo a quien siga.');
     else if (act === 'copy') copyText(`${g.title}\n\n` + (g.lines || []).map(l => l.text).join('\n'), 'Poema copiado.', document.querySelector('.poem'));
   });
 
@@ -465,7 +474,7 @@ img { max-width: 100%; }
     const el = document.getElementById('countdown');
     if (!el || !myTurn) return;
     const s = Math.round(myTurn.until - nowS());
-    if (s <= 0) { el.innerHTML = '<span style="color:var(--warn)">Se acabó el tiempo. Envía rápido: si nadie tomó el turno, aún entra.</span>'; return; }
+    if (s <= 0) { el.innerHTML = '<span style="color:var(--warn)">Se acabó el tiempo. Enviá rápido: si nadie tomó el turno, aún entra.</span>'; return; }
     el.innerHTML = `Te quedan <strong>${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}</strong> · ⌘/Ctrl + Enter para enviar`;
   }
   setInterval(tick, 1000);

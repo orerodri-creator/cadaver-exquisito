@@ -28,7 +28,8 @@ MAX_GAMES = 300
 MAX_LINE = 160
 MAX_TITLE = 80
 MAX_NAME = 40
-ALLOWED_TURNS = {4, 6, 8, 10, 12, 16}
+ALLOWED_TURNS = {4, 6, 8, 10, 12, 16, 20, 25, 30, 35, 40}
+MAX_PLACE = 60
 ID_RE = re.compile(r"^[a-z0-9]{6,32}$")
 PLAYER_RE = re.compile(r"^[A-Za-z0-9_-]{16,64}$")
 
@@ -138,7 +139,7 @@ def public_game(g):
         "hands": len({l["by"] for l in lines}),
     }
     if g["status"] == "done":
-        base["lines"] = [{"text": l["text"], "name": l.get("name") or ""} for l in lines]
+        base["lines"] = [{"text": l["text"], "name": l.get("name") or "", "place": l.get("place") or ""} for l in lines]
     else:
         last = lines[-1]["text"] if lines else ""
         base["peekWords"] = " ".join(last.split()[-g["peek"]:]) if last else ""
@@ -169,7 +170,7 @@ def need_game(gid):
 def need_player(body):
     pid = str(body.get("playerId") or "")
     if not PLAYER_RE.match(pid):
-        raise Fail(400, "Falta el identificador del jugador. Recarga la página.")
+        raise Fail(400, "Falta el identificador del jugador. Recargá la página.")
     return pid
 
 
@@ -180,7 +181,7 @@ def create_game(body):
     if turns not in ALLOWED_TURNS or not 1 <= peek <= 5:
         raise Fail(400, "Ajustes de partida no válidos.")
     if len(GAMES) >= MAX_GAMES:
-        raise Fail(507, "Hay demasiadas partidas guardadas. Borra alguna vieja e inténtalo otra vez.")
+        raise Fail(507, "Hay demasiadas partidas guardadas. Borrá alguna vieja e intentalo otra vez.")
     gid = secrets.token_hex(5)
     g = {
         "id": gid,
@@ -206,7 +207,7 @@ def take_turn(g, body):
     if g["status"] == "done":
         raise Fail(409, "La partida ya se reveló.")
     if writing(g) and g["writingBy"] != pid:
-        raise Fail(409, "Otra persona acaba de tomar el turno. Espera a que termine.")
+        raise Fail(409, "Otra persona acaba de tomar el turno. Esperá a que termine.")
     g["writingBy"] = pid
     g["writingName"] = clean(body.get("name"), MAX_NAME)
     g["writingUntil"] = now() + TURN_SECONDS
@@ -218,13 +219,14 @@ def add_line(g, body):
     pid = need_player(body)
     text = clean(body.get("text"), MAX_LINE)
     if not text:
-        raise Fail(400, "Escribe algo antes de doblar la hoja.")
+        raise Fail(400, "Escribí algo antes de doblar la hoja.")
     if g["status"] == "done":
         raise Fail(409, "La partida ya se reveló. Tu verso no se guardó.")
     # A lapsed turn still counts if nobody else took it meanwhile.
     if writing(g) and g["writingBy"] != pid:
         raise Fail(409, "Se acabó tu tiempo y otra persona tomó el turno. Tu verso no se guardó.")
-    g["lines"].append({"text": text, "by": pid, "name": clean(body.get("name"), MAX_NAME), "at": now()})
+    g["lines"].append({"text": text, "by": pid, "name": clean(body.get("name"), MAX_NAME),
+                       "place": clean(body.get("place"), MAX_PLACE), "at": now()})
     g["writingBy"], g["writingName"], g["writingUntil"] = None, "", 0
     if len(g["lines"]) >= g["turns"]:
         g["status"] = "done"
@@ -271,7 +273,7 @@ def too_many(ip):
     recent = [x for x in HITS.get(ip, []) if t - x < 60]
     recent.append(t)
     HITS[ip] = recent[-200:]
-    return len(recent) > 90
+    return len(recent) > 300
 
 
 # ---------------------------------------------------------------- http
@@ -281,7 +283,7 @@ class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
     def log_message(self, fmt, *args):
-        if os.environ.get("QUIET"):
+        if os.environ.get("QUIET") or "/healthz" in (self.path or ""):
             return
         super().log_message(fmt, *args)
 
@@ -307,7 +309,40 @@ class Handler(BaseHTTPRequestHandler):
             return self.events()
         if path == "/healthz":
             return self.send_json(200, {"ok": True})
+        if path == "/api/export.txt":
+            return self.export()
         return self.static(path)
+
+    def do_HEAD(self):
+        self.send_response(200 if self.path.split("?", 1)[0] in ("/", "/healthz") else 404)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def export(self):
+        from urllib.parse import parse_qs, urlparse
+        only = parse_qs(urlparse(self.path).query).get("id", [""])[0]
+        with LOCK:
+            done = [g for g in GAMES.values() if g["status"] == "done" and (not only or g["id"] == only)]
+            done.sort(key=lambda g: g["createdAt"])
+            parts = []
+            for g in done:
+                when = time.strftime("%d/%m/%Y", time.localtime(g["createdAt"]))
+                lines = g.get("lines", [])
+                block = [g["title"].upper(), f"{when} · {len(lines)} versos", ""]
+                for l in lines:
+                    sign = ", ".join(x for x in (l.get("name"), l.get("place")) if x)
+                    block.append(l["text"] + (f"    — {sign}" if sign else ""))
+                parts.append("\n".join(block))
+        text = ("\n\n\n".join(parts) if parts else "Todavía no hay poemas revelados.") + "\n"
+        data = text.encode("utf-8")
+        name = f"cadaver-exquisito-{only}.txt" if only else "cadaver-exquisito-poemas.txt"
+        self.send_response(200)
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_header("Content-Disposition", f'attachment; filename="{name}"')
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(data)
 
     def static(self, path):
         name = "index.html" if path in ("/", "") else path.lstrip("/")
@@ -357,7 +392,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         path = self.path.split("?", 1)[0]
         if too_many(self.client_ip()):
-            return self.send_json(429, {"error": "Demasiadas acciones seguidas. Espera un minuto."})
+            return self.send_json(429, {"error": "Demasiadas acciones seguidas. Esperá un minuto."})
         try:
             length = int(self.headers.get("Content-Length") or 0)
             if length > 10_000:
@@ -381,7 +416,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(400, {"error": "Petición no válida."})
         except Exception as e:  # noqa: BLE001
             self.log_error("error: %r", e)
-            self.send_json(500, {"error": "Algo falló en el servidor. Inténtalo de nuevo."})
+            self.send_json(500, {"error": "Algo falló en el servidor. Intentalo de nuevo."})
 
 
 def expire_loop():
