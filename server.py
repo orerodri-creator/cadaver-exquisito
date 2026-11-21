@@ -30,6 +30,7 @@ MAX_TITLE = 80
 MAX_NAME = 40
 ALLOWED_TURNS = {4, 6, 8, 10, 12, 16, 20, 25, 30, 35, 40}
 MAX_PLACE = 60
+MAX_TURNS = 60
 ID_RE = re.compile(r"^[a-z0-9]{6,32}$")
 PLAYER_RE = re.compile(r"^[A-Za-z0-9_-]{16,64}$")
 
@@ -261,7 +262,28 @@ def delete_game(g, body):
     return {}
 
 
-ACTIONS = {"take": take_turn, "lines": add_line, "release": release, "reveal": reveal, "delete": delete_game}
+def set_turns(g, body):
+    pid = need_player(body)
+    if g["createdBy"] != pid:
+        raise Fail(403, "Solo quien abrió la partida puede cambiar la cantidad de versos.")
+    if g["status"] == "done":
+        raise Fail(409, "La partida ya se reveló.")
+    try:
+        turns = int(body.get("turns"))
+    except (TypeError, ValueError):
+        raise Fail(400, "Escribí un número de versos.")
+    count = len(g.get("lines", []))
+    if turns <= count:
+        raise Fail(400, f"Ya hay {count} versos escritos. Elegí un número mayor, o usá «Revelar antes de tiempo» para cerrar el poema.")
+    if turns > MAX_TURNS:
+        raise Fail(400, f"El máximo es {MAX_TURNS} versos.")
+    g["turns"] = turns
+    STORE.save(g)
+    return {"turns": turns}
+
+
+ACTIONS = {"take": take_turn, "lines": add_line, "release": release, "reveal": reveal, "delete": delete_game,
+           "turns": set_turns}
 
 # ---------------------------------------------------------------- rate limit
 

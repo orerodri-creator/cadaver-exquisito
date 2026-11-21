@@ -152,10 +152,43 @@ img { max-width: 100%; }
 .intro { display: grid; gap: 6px; max-width: 34ch; }
 .dims { border-top: 1px dashed var(--fold-edge); padding-top: 12px; display: grid; gap: 6px; font-size: .9rem; color: var(--muted); }
 .dims p { margin: 0; }
+.turns-edit { background: var(--sheet); border: 1px solid var(--rule); border-radius: 4px; padding: 16px; display: grid; gap: 12px; max-width: 420px; }
+.turns-edit input { background: var(--paper); border: 1px solid var(--rule); padding: 10px 12px; border-radius: 4px; width: 8em; }
 .dims ul { margin: 0; padding-left: 1.1em; display: grid; gap: 4px; }
 .dims strong { color: var(--ink); font-weight: 600; }
 .link { background: none; border: none; padding: 0; color: var(--accent); text-decoration: underline; cursor: pointer; font-size: inherit; }
 .write .field input { background: var(--paper); border: 1px solid var(--rule); padding: 10px 12px; border-radius: 4px; width: 100%; }
+
+/* Projection mode: always dark, made for a projector or a shared screen in a video call. */
+.proj { position: fixed; inset: 0; z-index: 30; background: #0B0D1A; color: #EEF0FA; display: grid; grid-template-rows: auto 1fr auto;
+  padding: calc(20px + env(safe-area-inset-top, 0px)) max(24px, env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) max(24px, env(safe-area-inset-left, 0px));
+  color-scheme: dark; cursor: default; user-select: none; }
+body.projecting { overflow: hidden; }
+.proj-top { display: flex; justify-content: space-between; gap: 16px; font-family: var(--font-mono); font-size: clamp(.7rem, 1.1vw, .9rem); letter-spacing: .12em; text-transform: uppercase; color: #8D93B8; }
+.proj-stage { display: grid; align-content: center; justify-items: center; text-align: center; gap: clamp(16px, 3vh, 36px); min-height: 0; overflow: hidden; padding-block: 12px; }
+.proj-prev { font-family: var(--font-display); font-style: italic; font-size: clamp(1rem, 2.2vw, 1.8rem); color: #5F6590; max-width: 40ch; }
+.proj-prev::before { content: "… "; }
+.proj-verse { font-family: var(--font-display); font-weight: 500; font-size: clamp(2rem, 5.6vw, 4.8rem); line-height: 1.15; max-width: 22ch; text-wrap: balance; overflow-wrap: anywhere; }
+.proj-sign { font-size: clamp(1rem, 1.8vw, 1.5rem); color: #A9AEDA; display: grid; gap: 4px; }
+.proj-sign .place { font-style: italic; color: #8290FF; }
+.proj-title { font-family: var(--font-display); font-style: italic; font-weight: 700; font-size: clamp(2.6rem, 7vw, 6rem); line-height: 1; max-width: 18ch; text-wrap: balance; color: #8290FF; }
+.proj-sub { font-size: clamp(1rem, 2vw, 1.6rem); color: #A9AEDA; max-width: 40ch; }
+.proj-places { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 14px; max-width: 70ch; }
+.proj-places span { font-family: var(--font-display); font-style: italic; font-size: clamp(1rem, 2vw, 1.6rem); padding: 4px 14px; border: 1px solid #343A5E; border-radius: 999px; }
+.proj-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; transition: opacity .3s; }
+.proj.idle .proj-bar { opacity: 0; }
+.proj.idle { cursor: none; }
+.proj-btn { background: transparent; color: #EEF0FA; border: 1px solid #343A5E; border-radius: 999px; padding: 8px 14px; cursor: pointer; font-size: .9rem; }
+.proj-btn:hover, .proj-btn[aria-pressed="true"] { border-color: #8290FF; color: #8290FF; }
+.proj-count { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: #8D93B8; min-width: 7ch; text-align: center; }
+.proj-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: #1C2038; }
+.proj-progress i { display: block; height: 100%; background: #8290FF; transition: width .4s; }
+@media (prefers-reduced-motion: no-preference) {
+  .proj-stage > * { animation: projIn .7s cubic-bezier(.2,.7,.2,1) both; }
+  .proj-stage > *:nth-child(2) { animation-delay: .08s; }
+  .proj-stage > *:nth-child(3) { animation-delay: .16s; }
+  @keyframes projIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+}
 </style>
 </head>
 <body>
@@ -171,6 +204,7 @@ img { max-width: 100%; }
   <main id="app" aria-live="polite"></main>
   <footer class="foot"><span id="whoami"></span><span class="credit">Cartografía sensible colectiva · Taller de Integración Final · Ciclo de Complementación Curricular en Gestión Cultural · Escuela de Artes, Medios e Innovación · UNLaM</span></footer>
 </div>
+<div id="proj" class="proj" hidden></div>
 <div id="toast" class="toast" hidden></div>
 
 <script>
@@ -196,6 +230,7 @@ img { max-width: 100%; }
   let myTurn = null;          // {gid, until}
   let draft = '';
   let armed = null;
+  let editTurns = null;      // gid whose verse count is being edited
   let justRevealed = null;
   let busy = false;
 
@@ -228,6 +263,7 @@ img { max-width: 100%; }
     const h = decodeURIComponent(location.hash.slice(1));
     if (h === 'nueva') return { view: 'new' };
     if (h.startsWith('p-')) return { view: 'game', gid: h.slice(2) };
+    if (h.startsWith('proy-')) return { view: 'proj', gid: h.slice(5) };
     return { view: 'lobby' };
   }
 
@@ -329,7 +365,14 @@ img { max-width: 100%; }
     }
     const share = `<button class="btn" data-act="share">Copiar enlace de la partida</button>`;
     const mineGame = created.has(gid);
-    const manage = mineGame ? `<div class="row">
+    const turnsEditor = editTurns === gid && g.status !== 'done' ? `<form class="turns-edit" id="turnsForm">
+        <div class="field"><label for="turns-input">Cantidad de versos</label>
+          <input id="turns-input" type="number" inputmode="numeric" min="${g.count + 1}" max="60" value="${g.turns}">
+          <span class="hint">${g.count ? `Ya hay ${plural(g.count, 'verso escrito', 'versos escritos')}, así que tiene que ser ${g.count + 1} o más.` : 'Entre 1 y 60.'} Para cerrar el poema con lo que hay, usá «Revelar antes de tiempo».</span></div>
+        <div class="row"><button class="btn primary" type="submit">Guardar</button><button class="btn quiet" type="button" data-act="turns-cancel">Cancelar</button></div>
+      </form>` : '';
+    const manage = mineGame ? `${turnsEditor}<div class="row">
+        ${g.status !== 'done' && editTurns !== gid ? `<button class="btn quiet" data-act="turns-edit">Cambiar cantidad de versos</button>` : ''}
         ${g.status !== 'done' && g.count ? `<button class="btn quiet" data-act="reveal">${armed === 'reveal:' + gid ? '¿Seguro? Revelar ahora' : 'Revelar antes de tiempo'}</button>` : ''}
         <button class="btn ${armed === 'delete:' + gid ? 'danger' : 'quiet'}" data-act="delete">${armed === 'delete:' + gid ? '¿Seguro? Borrar partida' : 'Borrar'}</button>
       </div>` : '';
@@ -343,7 +386,7 @@ img { max-width: 100%; }
           <div class="poem ${anim ? 'unfold' : ''}">
             ${lines.length ? lines.map((l, i) => `<div class="verse" style="--i:${i}"><span class="v">${esc(l.text)}</span><span class="who">${esc(l.name || 'Anónimo')}${l.place ? `<span class="place">${esc(l.place)}</span>` : ''}</span></div>`).join('') : '<p class="small">Nadie llegó a escribir.</p>'}
           </div>
-          <div class="row"><button class="btn" data-act="copy">Copiar poema</button><a class="btn" href="/api/export.txt?id=${esc(g.id)}" download>Descargar poema (.txt)</a>${share}</div>
+          <div class="row"><a class="btn primary" href="#proy-${esc(g.id)}">Modo proyección</a><button class="btn" data-act="copy">Copiar poema</button><a class="btn" href="/api/export.txt?id=${esc(g.id)}" download>Descargar poema (.txt)</a>${share}</div>
           ${manage}
         </div>`;
       return;
@@ -407,11 +450,126 @@ img { max-width: 100%; }
     }
   }
 
+
+  /* ---------- Projection mode ---------- */
+  const projEl = document.getElementById('proj');
+  let proj = { gid: null, i: 0, auto: false, timer: null, idle: null };
+  const AUTO_MS = 9000;
+
+  function projSlides(g) {
+    const lines = g.lines || [];
+    const places = [...new Set(lines.map(l => (l.place || '').trim()).filter(Boolean))];
+    const slides = [{ kind: 'intro' }];
+    lines.forEach((l, i) => slides.push({ kind: 'verse', l, prev: i ? lines[i - 1].text : '' }));
+    slides.push({ kind: 'outro', places, hands: g.hands, count: lines.length });
+    return slides;
+  }
+
+  function closeProj() {
+    clearInterval(proj.timer); clearTimeout(proj.idle);
+    proj = { gid: null, i: 0, auto: false, timer: null, idle: null };
+    projEl.hidden = true; projEl.innerHTML = ''; document.body.classList.remove('projecting');
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  }
+
+  function viewProj(gid) {
+    const g = games.find(x => x.id === gid);
+    if (!g || g.status !== 'done') {
+      closeProj();
+      app.innerHTML = `<a class="back" href="#">← Volver</a><div class="empty"><p class="eyebrow">Todavía no</p><p>El modo proyección se habilita cuando la trayectoria está revelada.</p>${g ? `<a class="btn" href="#p-${esc(g.id)}">Ir a la partida</a>` : ''}</div>`;
+      return;
+    }
+    if (proj.gid !== gid) { closeProj(); proj.gid = gid; }
+    const slides = projSlides(g);
+    proj.i = Math.max(0, Math.min(proj.i, slides.length - 1));
+    const sl = slides[proj.i];
+    let stage;
+    if (sl.kind === 'intro') {
+      stage = `<p class="proj-sub">Cadáver exquisito de la comisión</p>
+        <h1 class="proj-title">${esc(g.title)}</h1>
+        <p class="proj-sub">${plural((g.lines || []).length, 'verso', 'versos')} · ${plural(g.hands, 'voz', 'voces')} · cada quien leyó solo el final del verso anterior</p>`;
+    } else if (sl.kind === 'verse') {
+      const sign = `<span>${esc(sl.l.name || 'Anónimo')}</span>${sl.l.place ? `<span class="place">${esc(sl.l.place)}</span>` : ''}`;
+      stage = `${sl.prev ? `<p class="proj-prev">${esc(lastWordsOf(sl.prev, g.peek))}</p>` : '<p class="proj-prev" style="visibility:hidden">·</p>'}
+        <p class="proj-verse">${esc(sl.l.text)}</p>
+        <p class="proj-sign">${sign}</p>`;
+    } else {
+      stage = `<h1 class="proj-title">${plural(sl.hands, 'voz', 'voces')}, un recorrido</h1>
+        ${sl.places.length ? `<p class="proj-sub">Escribimos desde</p><div class="proj-places">${sl.places.map(p => `<span>${esc(p)}</span>`).join('')}</div>`
+          : `<p class="proj-sub">${plural(sl.count, 'verso', 'versos')} escritos a muchas manos</p>`}`;
+    }
+    const pct = slides.length > 1 ? (proj.i / (slides.length - 1)) * 100 : 100;
+    const counter = sl.kind === 'verse' ? `${proj.i} / ${slides.length - 2}` : sl.kind === 'intro' ? 'Inicio' : 'Final';
+    projEl.innerHTML = `
+      <div class="proj-top"><span>Cartografía sensible · TIF</span><span>Gestión Cultural · UNLaM</span></div>
+      <div class="proj-stage" data-zone="stage">${stage}</div>
+      <div class="proj-bar">
+        <button class="proj-btn" data-proj="prev" aria-label="Anterior">←</button>
+        <span class="proj-count">${counter}</span>
+        <button class="proj-btn" data-proj="next" aria-label="Siguiente">→</button>
+        <button class="proj-btn" data-proj="auto" aria-pressed="${proj.auto}">${proj.auto ? 'Pausar' : 'Reproducir solo'}</button>
+        <button class="proj-btn" data-proj="full">${document.fullscreenElement ? 'Salir de pantalla completa' : 'Pantalla completa'}</button>
+        <button class="proj-btn" data-proj="exit">Salir</button>
+      </div>
+      <div class="proj-progress"><i style="width:${pct}%"></i></div>`;
+    projEl.hidden = false; document.body.classList.add('projecting');
+    wake();
+  }
+  const lastWordsOf = (text, n) => String(text || '').trim().split(/\s+/).slice(-n).join(' ');
+
+  function projGo(d) {
+    const g = games.find(x => x.id === proj.gid); if (!g) return;
+    const n = projSlides(g).length;
+    const next = Math.max(0, Math.min(n - 1, proj.i + d));
+    if (next === proj.i) { if (proj.auto && d > 0) toggleAuto(); return; }
+    proj.i = next; viewProj(proj.gid);
+  }
+  function toggleAuto() {
+    proj.auto = !proj.auto; clearInterval(proj.timer);
+    if (proj.auto) proj.timer = setInterval(() => projGo(1), AUTO_MS);
+    viewProj(proj.gid);
+  }
+  function toggleFull() {
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    else (document.documentElement.requestFullscreen?.() || Promise.reject()).catch(() => toast('Este navegador no permite pantalla completa. Probá con la tecla F11.'));
+  }
+  function wake() {
+    projEl.classList.remove('idle'); clearTimeout(proj.idle);
+    proj.idle = setTimeout(() => projEl.classList.add('idle'), 3000);
+  }
+  document.addEventListener('fullscreenchange', () => { if (proj.gid) viewProj(proj.gid); });
+  projEl.addEventListener('mousemove', wake);
+  projEl.addEventListener('click', e => {
+    const b = e.target.closest('[data-proj]');
+    if (b) {
+      const a = b.dataset.proj;
+      if (a === 'prev') projGo(-1); else if (a === 'next') projGo(1);
+      else if (a === 'auto') toggleAuto(); else if (a === 'full') toggleFull();
+      else if (a === 'exit') { const id = proj.gid; closeProj(); location.hash = 'p-' + id; }
+      return;
+    }
+    if (e.target.closest('[data-zone="stage"]')) projGo(e.clientX < innerWidth / 3 ? -1 : 1);
+  });
+  document.addEventListener('keydown', e => {
+    if (!proj.gid || projEl.hidden) return;
+    const k = e.key;
+    if (['ArrowRight', 'ArrowDown', 'PageDown', ' ', 'Enter'].includes(k)) { e.preventDefault(); projGo(1); }
+    else if (['ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace'].includes(k)) { e.preventDefault(); projGo(-1); }
+    else if (k === 'Home') { proj.i = 0; viewProj(proj.gid); }
+    else if (k === 'End') { proj.i = 1e6; viewProj(proj.gid); }
+    else if (k === 'f' || k === 'F') toggleFull();
+    else if (k === 'p' || k === 'P') toggleAuto();
+    else if (k === 'Escape' && !document.fullscreenElement) { const id = proj.gid; closeProj(); location.hash = 'p-' + id; }
+    wake();
+  });
+
   function render() {
     renderWho();
     if (!loaded) { app.innerHTML = `<div class="empty"><p class="eyebrow">Cargando</p><p>Buscando los recorridos en curso…</p></div>`; return; }
     const r = route();
+    if (r.view !== 'proj' && proj.gid) closeProj();
     if (r.view === 'new') return viewNew();
+    if (r.view === 'proj') return viewProj(r.gid);
     if (r.view === 'game') return viewGame(r.gid);
     return viewLobby();
   }
@@ -456,6 +614,18 @@ img { max-width: 100%; }
     try { await api(`/api/games/${g.id}/reveal`, {}); } catch (err) { toast(err.message); }
   }
 
+  document.addEventListener('submit', async e => {
+    if (e.target.id !== 'turnsForm') return;
+    e.preventDefault();
+    const r = route(); const g = games.find(x => x.id === r.gid); if (!g || busy) return;
+    const n = parseInt(document.getElementById('turns-input').value, 10);
+    if (!Number.isFinite(n) || n <= g.count || n > 60) { toast(`Elegí un número entre ${g.count + 1} y 60.`); return; }
+    busy = true;
+    try { await api(`/api/games/${g.id}/turns`, { turns: n }); editTurns = null; toast(`Listo: el poema ahora tiene ${n} versos.`); }
+    catch (err) { toast(err.message); }
+    busy = false; render();
+  });
+
   async function del(g) {
     if (armed !== 'delete:' + g.id) { armed = 'delete:' + g.id; render(); return; }
     armed = null;
@@ -486,6 +656,8 @@ img { max-width: 100%; }
     else if (act === 'cancel') cancel(g);
     else if (act === 'reveal') reveal(g);
     else if (act === 'delete') del(g);
+    else if (act === 'turns-edit') { editTurns = g.id; armed = null; render(); document.getElementById('turns-input')?.focus(); }
+    else if (act === 'turns-cancel') { editTurns = null; render(); }
     else if (act === 'share') copyText(location.origin + location.pathname + '#p-' + g.id, 'Enlace copiado. Mandalo a quien siga.');
     else if (act === 'copy') copyText(`${g.title}\n\n` + (g.lines || []).map(l => l.text).join('\n'), 'Poema copiado.', document.querySelector('.poem'));
   });
@@ -498,9 +670,9 @@ img { max-width: 100%; }
     el.innerHTML = `Te quedan <strong>${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}</strong> · ⌘/Ctrl + Enter para enviar`;
   }
   setInterval(tick, 1000);
-  setInterval(() => { if (!myTurn && loaded && !document.activeElement?.matches('input, select, textarea')) render(); }, 15000);
+  setInterval(() => { if (!myTurn && loaded && !proj.gid && !document.activeElement?.matches('input, select, textarea')) render(); }, 15000);
 
-  window.addEventListener('hashchange', () => { armed = null; render(); window.scrollTo(0, 0); });
+  window.addEventListener('hashchange', () => { armed = null; editTurns = null; render(); window.scrollTo(0, 0); });
 
   /* ---------- Live data ---------- */
   function apply(data) {
@@ -515,7 +687,8 @@ img { max-width: 100%; }
     }
     loaded = true; setNotice('');
     const typing = document.activeElement?.matches('input, select, textarea');
-    if (!(myTurn && r.gid === myTurn.gid) && !(typing && r.view === 'new')) render();
+    if (r.view === 'proj' && proj.gid && games.find(g => g.id === r.gid)?.status === 'done') return;
+    if (!(myTurn && r.gid === myTurn.gid) && !(typing && (r.view === 'new' || editTurns))) render();
   }
 
   let es = null, retry = null;
