@@ -217,7 +217,7 @@ def public_game(g):
     }
     if g["status"] == "done":
         base["lines"] = [{"text": l["text"], "name": l.get("name") or "", "place": l.get("place") or "",
-                          "window": window_for(l.get("by"), l.get("name"))} for l in lines]
+                          "window": line_window(g, i)} for i, l in enumerate(lines)]
     else:
         last = lines[-1]["text"] if lines else ""
         base["peekWords"] = " ".join(last.split()[-g["peek"]:]) if last else ""
@@ -248,6 +248,26 @@ def window_for(pid, name):
     if key:
         for w in sorted(WINDOWS.values(), key=lambda w: w["at"]):
             if norm_name(w.get("name")) == key:
+                return w["id"]
+    return None
+
+
+def line_window(g, i):
+    """The window shown with verse i+1: a link the coordinator set by hand wins, otherwise the automatic match."""
+    links = g.get("links") or {}
+    key = str(i + 1)
+    if key in links:
+        wid = links[key]
+        return wid if wid in WINDOWS else None
+    l = g["lines"][i]
+    taken = set(links.values())
+    for w in WINDOWS.values():
+        if l.get("by") and w.get("playerId") == l.get("by"):
+            return None if w["id"] in taken else w["id"]
+    name = norm_name(l.get("name"))
+    if name:
+        for w in sorted(WINDOWS.values(), key=lambda w: w["at"]):
+            if w["id"] not in taken and norm_name(w.get("name")) == name:
                 return w["id"]
     return None
 
@@ -453,8 +473,47 @@ def my_lines(g, body):
     return {"total": g["turns"], "lines": [{"n": i + 1, "text": l["text"]} for i, l in enumerate(lines) if l.get("by") == pid]}
 
 
+def need_creator(g, body):
+    if g["createdBy"] != need_player(body):
+        raise Fail(403, "Solo quien abrió la partida puede unir fotos y versos.")
+
+
+def link_info(g, body):
+    """For the coordinator only: who signed each verse (names, never the text) and which photo goes with it."""
+    need_creator(g, body)
+    links = g.get("links") or {}
+    return {"links": [{"n": i + 1, "name": l.get("name") or "", "place": l.get("place") or "",
+                       "window": line_window(g, i), "manual": str(i + 1) in links}
+                      for i, l in enumerate(g.get("lines", []))],
+            "windows": public_windows()}
+
+
+def set_link(g, body):
+    need_creator(g, body)
+    try:
+        n = int(body.get("n"))
+    except (TypeError, ValueError):
+        raise Fail(400, "Falta el número de verso.")
+    if not 1 <= n <= len(g.get("lines", [])):
+        raise Fail(400, "Ese verso no existe.")
+    wid = str(body.get("window") or "")
+    links = dict(g.get("links") or {})
+    if wid == "auto":
+        links.pop(str(n), None)
+    elif wid == "" or wid in WINDOWS:
+        if wid:  # a photo goes with one verse only
+            links = {k: v for k, v in links.items() if v != wid}
+        links[str(n)] = wid
+    else:
+        raise Fail(400, "Esa foto ya no existe.")
+    g["links"] = links
+    STORE.save(g)
+    return link_info(g, body)
+
+
 ACTIONS = {"take": take_turn, "lines": add_line, "release": release, "reveal": reveal, "delete": delete_game,
-           "turns": set_turns, "mine": my_lines}
+           "turns": set_turns, "mine": my_lines,
+           "links": link_info, "link": set_link}
 
 # ---------------------------------------------------------------- rate limit
 
@@ -628,7 +687,7 @@ class Handler(BaseHTTPRequestHandler):
                     if not m or m.group(2) not in ACTIONS or not ID_RE.match(m.group(1)):
                         raise Fail(404, "Ruta desconocida.")
                     result = ACTIONS[m.group(2)](need_game(m.group(1)), body)
-            if path != "/api/windows/me" and not path.endswith("/mine"):
+            if path != "/api/windows/me" and not path.endswith(("/mine", "/links")):
                 broadcast()
             self.send_json(200, {"ok": True, **result})
         except Fail as f:

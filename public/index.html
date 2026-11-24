@@ -262,6 +262,13 @@ dialog.expo-dlg::backdrop { background: rgba(10, 12, 25, .72); }
 .proj-mosaic img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .mine { background: var(--sheet); border: 1px solid var(--rule); border-left: 4px solid var(--fold-edge); border-radius: 4px; padding: 12px 14px; display: grid; gap: 4px; font-size: .92rem; }
 .mine.ok { border-left-color: var(--accent); }
+.links { background: var(--sheet); border: 1px solid var(--rule); border-radius: 4px; padding: 16px; display: grid; gap: 10px; }
+.links .hint { font-size: .88rem; }
+.link-row { display: grid; grid-template-columns: 52px 1fr; gap: 10px; align-items: center; padding-top: 10px; border-top: 1px solid var(--rule); }
+.link-row .thumb { width: 52px; height: 52px; border-radius: 4px; background: var(--paper) center/cover no-repeat; border: 1px solid var(--rule); }
+.link-row .who { font-size: .92rem; overflow-wrap: anywhere; }
+.link-row select { margin-top: 4px; width: 100%; max-width: 360px; background: var(--paper); color: inherit; border: 1px solid var(--rule); border-radius: 4px; padding: 8px; font: inherit; font-size: .9rem; }
+.link-row .manual { font-size: .78rem; color: var(--accent); margin-left: 6px; }
 .mine .v { font-family: var(--font-display); font-style: italic; font-size: 1.05rem; overflow-wrap: anywhere; }
 </style>
 </head>
@@ -322,6 +329,8 @@ dialog.expo-dlg::backdrop { background: rgba(10, 12, 25, .72); }
   let expo = { list: [], i: -1 };
   const myLines = {};          // gid -> {total, lines:[{n,text}]} of this device's own verses
   const myLinesLoading = new Set();
+  let linkOpen = null;         // gid whose photo-verse panel is open (coordinator only)
+  const linkData = {};         // gid -> {links, windows}
 
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const nowS = () => Date.now() / 1000 + offset;
@@ -467,8 +476,9 @@ dialog.expo-dlg::backdrop { background: rgba(10, 12, 25, .72); }
     const manage = mineGame ? `${turnsEditor}<div class="row">
         ${g.status !== 'done' && editTurns !== gid ? `<button class="btn quiet" data-act="turns-edit">Cambiar cantidad de versos</button>` : ''}
         ${g.status !== 'done' && g.count ? `<button class="btn quiet" data-act="reveal">${armed === 'reveal:' + gid ? '¿Seguro? Revelar ahora' : 'Revelar antes de tiempo'}</button>` : ''}
+        ${g.count && windows.length && linkOpen !== gid ? `<button class="btn quiet" data-act="links-open">Unir fotos con versos</button>` : ''}
         <button class="btn ${armed === 'delete:' + gid ? 'danger' : 'quiet'}" data-act="delete">${armed === 'delete:' + gid ? '¿Seguro? Borrar partida' : 'Borrar'}</button>
-      </div>` : '';
+      </div><div id="links-panel"></div>` : '';
 
     if (g.status === 'done') {
       const anim = justRevealed === gid; justRevealed = null;
@@ -916,6 +926,45 @@ dialog.expo-dlg::backdrop { background: rgba(10, 12, 25, .72); }
     } else el.innerHTML = '';
   }
 
+  /* ---------- Coordinator: which photo goes with each verse (names only, never the hidden text) ---------- */
+  function loadLinks(gid) {
+    api(`/api/games/${gid}/links`, {})
+      .then(r => { linkData[gid] = r; })
+      .catch(err => { toast(err.message); linkOpen = null; })
+      .finally(() => { if (route().gid === gid) paintLinks(gid); });
+  }
+  function paintLinks(gid) {
+    const el = document.getElementById('links-panel'); if (!el) return;
+    if (linkOpen !== gid) { el.innerHTML = ''; return; }
+    const d = linkData[gid];
+    if (!d) { el.innerHTML = `<div class="links"><p class="hint">Cargando…</p></div>`; return; }
+    const byId = id => d.windows.find(w => w.id === id);
+    const autoOf = l => l.manual ? null : byId(l.window);
+    el.innerHTML = `<div class="links">
+      <strong>Unir fotos con versos</strong>
+      <p class="hint">Solo vos ves esta lista: muestra quién firmó cada verso, sin el texto. La app une sola cada foto con el verso escrito desde el mismo dispositivo o con el mismo nombre; si alguna quedó suelta o mal unida, elegila acá. Una foto va con un solo verso.</p>
+      ${d.links.map(l => { const w = byId(l.window); const a = autoOf(l);
+        return `<div class="link-row">
+          <div class="thumb" style="${w ? `background-image:url('${winSrc(w)}')` : ''}"></div>
+          <div><div class="who"><strong>Verso ${l.n}</strong> · ${esc(l.name || 'sin nombre')}${l.place ? ` (${esc(l.place)})` : ''}${l.manual ? '<span class="manual">unido a mano</span>' : ''}</div>
+            <select data-link="${l.n}" aria-label="Foto del verso ${l.n}">
+              <option value="auto"${l.manual ? '' : ' selected'}>Automático${!l.manual ? (a ? `: ${esc(a.name)}` : ': sin foto') : ''}</option>
+              ${d.windows.map(x => `<option value="${x.id}"${l.manual && l.window === x.id ? ' selected' : ''}>${esc(x.name || 'sin nombre')}${x.place ? ' · ' + esc(x.place) : ''}</option>`).join('')}
+              <option value=""${l.manual && !l.window ? ' selected' : ''}>Sin foto</option>
+            </select></div>
+        </div>`; }).join('')}
+      <div class="row"><button class="btn quiet" data-act="links-close">Listo</button></div>
+    </div>`;
+  }
+  document.addEventListener('change', async e => {
+    const sel = e.target.closest('select[data-link]'); if (!sel) return;
+    const gid = route().gid;
+    sel.disabled = true;
+    try { linkData[gid] = await api(`/api/games/${gid}/link`, { n: Number(sel.dataset.link), window: sel.value }); toast('Guardado.'); }
+    catch (err) { toast(err.message); }
+    paintLinks(gid);
+  });
+
   function render() {
     renderWho();
     if (!loaded) { app.innerHTML = `<div class="empty"><p class="eyebrow">Cargando</p><p>Buscando los recorridos en curso…</p></div>`; return; }
@@ -926,7 +975,7 @@ dialog.expo-dlg::backdrop { background: rgba(10, 12, 25, .72); }
     if (r.view === 'muestra') return viewExpo(r.gid);
     if (r.view === 'new') return viewNew();
     if (r.view === 'proj') return viewProj(r.gid);
-    if (r.view === 'game') { viewGame(r.gid); paintMine(r.gid); return; }
+    if (r.view === 'game') { viewGame(r.gid); paintMine(r.gid); paintLinks(r.gid); return; }
     return viewLobby();
   }
 
@@ -1014,6 +1063,8 @@ dialog.expo-dlg::backdrop { background: rgba(10, 12, 25, .72); }
     else if (act === 'delete') del(g);
     else if (act === 'turns-edit') { editTurns = g.id; armed = null; render(); document.getElementById('turns-input')?.focus(); }
     else if (act === 'turns-cancel') { editTurns = null; render(); }
+    else if (act === 'links-open') { linkOpen = g.id; delete linkData[g.id]; render(); loadLinks(g.id); }
+    else if (act === 'links-close') { linkOpen = null; render(); }
     else if (act === 'share') copyText(location.origin + location.pathname + '#p-' + g.id, 'Enlace copiado. Mandalo a quien siga.');
     else if (act === 'copy') copyText(`${g.title}\n\n` + (g.lines || []).map(l => l.text).join('\n'), 'Poema copiado.', document.querySelector('.poem'));
   });
@@ -1028,7 +1079,7 @@ dialog.expo-dlg::backdrop { background: rgba(10, 12, 25, .72); }
   setInterval(tick, 1000);
   setInterval(() => { if (!myTurn && loaded && !proj.gid && ['lobby', 'game'].includes(route().view) && !document.activeElement?.matches('input, select, textarea')) render(); }, 15000);
 
-  window.addEventListener('hashchange', () => { armed = null; editTurns = null; winEditing = false; winArmed = false; winDraft = null; if (dlg.open) dlg.close(); render(); window.scrollTo(0, 0); });
+  window.addEventListener('hashchange', () => { armed = null; editTurns = null; linkOpen = null; winEditing = false; winArmed = false; winDraft = null; if (dlg.open) dlg.close(); render(); window.scrollTo(0, 0); });
 
   /* ---------- Live data ---------- */
   function apply(data) {
@@ -1048,7 +1099,7 @@ dialog.expo-dlg::backdrop { background: rgba(10, 12, 25, .72); }
     if (r.view === 'proj' && proj.gid && games.find(g => g.id === r.gid)?.status === 'done') return;
     if (r.view === 'ventanas' && loaded && document.getElementById('win-mosaic')) { paintMosaic(); return; }
     if (r.view === 'muestra' && dlg.open) return;
-    if (!(myTurn && r.gid === myTurn.gid) && !(typing && (r.view === 'new' || editTurns))) render();
+    if (!(myTurn && r.gid === myTurn.gid) && !(typing && (r.view === 'new' || editTurns || linkOpen))) render();
   }
 
   let es = null, retry = null;
