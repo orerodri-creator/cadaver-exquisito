@@ -623,7 +623,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_error(404)
             return
         types = {".html": "text/html; charset=utf-8", ".js": "text/javascript", ".css": "text/css",
-                 ".png": "image/png", ".svg": "image/svg+xml", ".ico": "image/x-icon"}
+                 ".png": "image/png", ".svg": "image/svg+xml", ".ico": "image/x-icon", ".mp3": "audio/mpeg"}
         data = target.read_bytes()
         self.send_response(200)
         self.send_header("Content-Type", types.get(target.suffix, "application/octet-stream"))
