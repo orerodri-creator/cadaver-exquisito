@@ -260,6 +260,9 @@ dialog.expo-dlg::backdrop { background: rgba(10, 12, 25, .72); }
 .proj-mosaic { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; width: min(1200px, 100%); max-height: 58vh; overflow: hidden; }
 .proj-mosaic div { width: clamp(70px, 9vw, 140px); aspect-ratio: 4 / 3; border: 4px solid var(--c); border-radius: 2px; overflow: hidden; background: var(--c); }
 .proj-mosaic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.mine { background: var(--sheet); border: 1px solid var(--rule); border-left: 4px solid var(--fold-edge); border-radius: 4px; padding: 12px 14px; display: grid; gap: 4px; font-size: .92rem; }
+.mine.ok { border-left-color: var(--accent); }
+.mine .v { font-family: var(--font-display); font-style: italic; font-size: 1.05rem; overflow-wrap: anywhere; }
 </style>
 </head>
 <body>
@@ -317,6 +320,8 @@ dialog.expo-dlg::backdrop { background: rgba(10, 12, 25, .72); }
   let winColor = store.get('cx.color', '');
   let winArmed = false;
   let expo = { list: [], i: -1 };
+  const myLines = {};          // gid -> {total, lines:[{n,text}]} of this device's own verses
+  const myLinesLoading = new Set();
 
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const nowS = () => Date.now() / 1000 + offset;
@@ -469,6 +474,7 @@ dialog.expo-dlg::backdrop { background: rgba(10, 12, 25, .72); }
       const anim = justRevealed === gid; justRevealed = null;
       const lines = g.lines || [];
       app.innerHTML = `<a class="back" href="#">← Todas las partidas</a>
+        <div id="mine-note"></div>
         <div class="section">
           <div><p class="eyebrow">Trayectoria revelada · ${plural(lines.length, 'verso', 'versos')} · ${plural(g.hands, 'mano', 'manos')}</p><h2>${esc(g.title)}</h2></div>
           <div class="poem ${anim ? 'unfold' : ''}">
@@ -517,6 +523,7 @@ dialog.expo-dlg::backdrop { background: rgba(10, 12, 25, .72); }
     }
 
     app.innerHTML = `<a class="back" href="#">← Todas las partidas</a>
+      <div id="mine-note"></div>
       <article class="strip">
         <div class="strip-head">
           <p class="eyebrow">${g.count} de ${g.turns} versos · ${plural(g.peek, 'palabra visible', 'palabras visibles')}</p>
@@ -884,6 +891,31 @@ dialog.expo-dlg::backdrop { background: rgba(10, 12, 25, .72); }
     document.querySelectorAll('#tabs a').forEach(a => { if (a.dataset.tab === cur) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
   }
 
+  /* ---------- "Did my verse get saved?" (only this device's own verses) ---------- */
+  function loadMine(gid) {
+    if (myLinesLoading.has(gid)) return;
+    myLinesLoading.add(gid);
+    api(`/api/games/${gid}/mine`, {})
+      .then(r => { myLines[gid] = r; })
+      .catch(() => { myLines[gid] = null; })
+      .finally(() => { myLinesLoading.delete(gid); if (route().gid === gid) paintMine(gid); });
+  }
+  function paintMine(gid) {
+    const el = document.getElementById('mine-note'); if (!el) return;
+    const m = myLines[gid];
+    if (m === undefined) { el.innerHTML = ''; loadMine(gid); return; }
+    const g = games.find(x => x.id === gid);
+    if (!m || !g) { el.innerHTML = ''; return; }
+    if (m.lines.length) {
+      el.innerHTML = `<div class="mine ok"><strong>✓ ${m.lines.length === 1 ? 'Ya escribiste tu verso' : `Ya escribiste ${m.lines.length} versos`}</strong>
+        ${m.lines.map(l => `<span>Verso nº ${l.n}: <span class="v">«${esc(l.text)}»</span></span>`).join('')}
+        <span class="small">Solo vos ves esto, desde este dispositivo.</span></div>`;
+    } else if (g.status !== 'done') {
+      el.innerHTML = `<div class="mine"><strong>Desde este dispositivo todavía no figura ningún verso tuyo.</strong>
+        <span class="small">Si escribiste desde otro celular o compu, entrá desde ahí para comprobarlo.</span></div>`;
+    } else el.innerHTML = '';
+  }
+
   function render() {
     renderWho();
     if (!loaded) { app.innerHTML = `<div class="empty"><p class="eyebrow">Cargando</p><p>Buscando los recorridos en curso…</p></div>`; return; }
@@ -894,7 +926,7 @@ dialog.expo-dlg::backdrop { background: rgba(10, 12, 25, .72); }
     if (r.view === 'muestra') return viewExpo(r.gid);
     if (r.view === 'new') return viewNew();
     if (r.view === 'proj') return viewProj(r.gid);
-    if (r.view === 'game') return viewGame(r.gid);
+    if (r.view === 'game') { viewGame(r.gid); paintMine(r.gid); return; }
     return viewLobby();
   }
 
@@ -917,7 +949,7 @@ dialog.expo-dlg::backdrop { background: rgba(10, 12, 25, .72); }
       const pl = document.getElementById('place');
       if (pl) { myPlace = pl.value.trim().replace(/\s+/g, ' ').slice(0, 60); store.set('cx.place', myPlace); }
       const r = await api(`/api/games/${g.id}/lines`, { text, place: myPlace });
-      myTurn = null; draft = '';
+      myTurn = null; draft = ''; delete myLines[g.id];
       if (r.done) { justRevealed = g.id; toast('¡Último verso! La trayectoria se despliega.'); }
       else toast('Hoja doblada. Pasale el enlace a la siguiente persona de la comisión.');
     } catch (err) {

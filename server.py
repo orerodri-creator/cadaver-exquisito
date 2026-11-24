@@ -446,8 +446,15 @@ def set_turns(g, body):
     return {"turns": turns}
 
 
+def my_lines(g, body):
+    """Only the asking player's own verses: lets each person check their verse was saved."""
+    pid = need_player(body)
+    lines = g.get("lines", [])
+    return {"total": g["turns"], "lines": [{"n": i + 1, "text": l["text"]} for i, l in enumerate(lines) if l.get("by") == pid]}
+
+
 ACTIONS = {"take": take_turn, "lines": add_line, "release": release, "reveal": reveal, "delete": delete_game,
-           "turns": set_turns}
+           "turns": set_turns, "mine": my_lines}
 
 # ---------------------------------------------------------------- rate limit
 
@@ -621,7 +628,7 @@ class Handler(BaseHTTPRequestHandler):
                     if not m or m.group(2) not in ACTIONS or not ID_RE.match(m.group(1)):
                         raise Fail(404, "Ruta desconocida.")
                     result = ACTIONS[m.group(2)](need_game(m.group(1)), body)
-            if path != "/api/windows/me":
+            if path != "/api/windows/me" and not path.endswith("/mine"):
                 broadcast()
             self.send_json(200, {"ok": True, **result})
         except Fail as f:
