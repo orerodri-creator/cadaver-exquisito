@@ -189,6 +189,77 @@ body.projecting { overflow: hidden; }
   .proj-stage > *:nth-child(3) { animation-delay: .16s; }
   @keyframes projIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 }
+
+/* Tabs between the poem, the windows and the exhibition */
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.tabs a { text-decoration: none; color: var(--muted); border: 1px solid var(--rule); border-radius: 999px; padding: 6px 14px; font-size: .92rem; }
+.tabs a[aria-current="page"] { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
+.tabs a:hover { border-color: var(--accent); }
+
+/* Windows */
+.win-intro p { margin: 0; max-width: 60ch; }
+.win-intro { display: grid; gap: 10px; }
+form.win-form { background: var(--sheet); border: 1px solid var(--rule); border-radius: 4px; padding: 20px; display: grid; gap: 18px; }
+.win-form .field input[type="text"], .win-form .field input:not([type]) { background: var(--paper); border: 1px solid var(--rule); padding: 10px 12px; border-radius: 4px; width: 100%; }
+.pick { display: grid; grid-template-columns: minmax(0, 220px) 1fr; gap: 16px; align-items: start; }
+@media (max-width: 520px) { .pick { grid-template-columns: 1fr; } }
+.preview { aspect-ratio: 4 / 3; max-width: 100%; border-radius: 3px; border: 6px solid var(--c, var(--fold-edge)); background: var(--fold); display: grid; place-items: center; overflow: hidden; color: var(--muted); font-size: .85rem; text-align: center; padding: 0; }
+.preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.file-btn { position: relative; overflow: hidden; }
+.file-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+.swatch { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--sheet); outline: 1px solid var(--rule); background: var(--sw); cursor: pointer; padding: 0; }
+.swatch[aria-pressed="true"] { outline: 3px solid var(--ink); }
+.swatch-custom { width: 34px; height: 34px; border: 1px dashed var(--fold-edge); border-radius: 50%; padding: 0; background: none; cursor: pointer; }
+.mosaic { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+@media (max-width: 520px) { .mosaic { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.win { margin: 0; display: grid; gap: 6px; min-width: 0; }
+.win .frame { aspect-ratio: 4 / 3; border: 6px solid var(--c); border-radius: 3px; overflow: hidden; background: var(--c); }
+.win .frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.win figcaption { font-size: .85rem; display: grid; line-height: 1.3; min-width: 0; }
+.win figcaption .place { color: var(--muted); font-style: italic; }
+.win figcaption span { overflow-wrap: anywhere; }
+
+/* Exhibition */
+.expo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 16px; }
+@media (max-width: 520px) { .expo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } }
+.tile { all: unset; box-sizing: border-box; cursor: pointer; display: grid; gap: 6px; min-width: 0; }
+.tile:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.tile .frame { aspect-ratio: 4 / 3; border: 6px solid var(--c, var(--fold-edge)); border-radius: 3px; overflow: hidden; background: var(--c, var(--fold)); position: relative; transition: transform .25s; }
+.tile:hover .frame { transform: translateY(-3px); }
+.tile .frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tile .frame .only-verse { position: absolute; inset: 0; display: grid; place-items: center; padding: 10px; font-family: var(--font-display); font-style: italic; font-size: .95rem; line-height: 1.25; color: #fff; text-align: center; background: linear-gradient(160deg, var(--accent), #15182C); }
+.tile .num { font-family: var(--font-mono); font-size: .7rem; letter-spacing: .1em; color: var(--muted); }
+.tile .who { font-size: .85rem; line-height: 1.3; display: grid; min-width: 0; }
+.tile .who .place { color: var(--muted); font-style: italic; }
+dialog.expo-dlg { border: none; padding: 0; width: min(920px, calc(100vw - 32px)); max-height: calc(100vh - 32px); background: var(--sheet); color: var(--ink); border-radius: 4px; box-shadow: 0 30px 80px -20px rgba(0,0,0,.6); }
+dialog.expo-dlg::backdrop { background: rgba(10, 12, 25, .72); }
+.dlg { display: grid; grid-template-columns: 1.2fr 1fr; min-height: 0; }
+@media (max-width: 700px) { .dlg { grid-template-columns: 1fr; } }
+.dlg-photo { background: var(--c, var(--fold)); border-right: 8px solid var(--c, var(--fold-edge)); display: grid; place-items: center; min-height: 240px; }
+@media (max-width: 700px) { .dlg-photo { border-right: none; border-bottom: 8px solid var(--c, var(--fold-edge)); } }
+.dlg-photo img { width: 100%; height: 100%; max-height: 70vh; object-fit: contain; display: block; background: #0B0D1A; }
+.dlg-text { padding: 24px; display: grid; gap: 14px; align-content: center; min-width: 0; }
+.dlg-text .from { font-family: var(--font-mono); font-size: .85rem; color: var(--muted); }
+.dlg-text .verse { font-family: var(--font-display); font-size: clamp(1.4rem, 3vw, 2rem); line-height: 1.25; margin: 0; overflow-wrap: anywhere; }
+.dlg-text .sign { display: grid; gap: 2px; }
+.dlg-text .sign .place { color: var(--muted); font-style: italic; }
+.dlg-text .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: var(--c); vertical-align: middle; margin-right: 6px; }
+.dlg-nav { display: flex; gap: 8px; flex-wrap: wrap; padding: 12px 24px 20px; justify-content: space-between; grid-column: 1 / -1; border-top: 1px solid var(--rule); }
+
+/* Projection: verse over its window */
+.proj-bg { position: absolute; inset: 0; z-index: 0; background: var(--c, #0B0D1A); }
+.proj-bg img { width: 100%; height: 100%; object-fit: cover; display: block; filter: saturate(.85); }
+.proj-bg::after { content: ""; position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(11,13,26,.55) 0%, rgba(11,13,26,.72) 45%, rgba(11,13,26,.9) 100%),
+              linear-gradient(90deg, color-mix(in srgb, var(--c, #0B0D1A) 35%, transparent), transparent 60%); }
+.proj > .proj-top, .proj > .proj-stage, .proj > .proj-bar { position: relative; z-index: 1; }
+.proj.photo .proj-verse, .proj.photo .proj-sign, .proj.photo .proj-prev { text-shadow: 0 2px 18px rgba(0,0,0,.65); }
+.proj.photo .proj-prev { color: #B9BEE0; }
+.proj-colorbar { width: 64px; height: 6px; border-radius: 3px; background: var(--c); justify-self: center; }
+.proj-mosaic { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; width: min(1200px, 100%); max-height: 58vh; overflow: hidden; }
+.proj-mosaic div { width: clamp(70px, 9vw, 140px); aspect-ratio: 4 / 3; border: 4px solid var(--c); border-radius: 2px; overflow: hidden; background: var(--c); }
+.proj-mosaic img { width: 100%; height: 100%; object-fit: cover; display: block; }
 </style>
 </head>
 <body>
@@ -200,11 +271,17 @@ body.projecting { overflow: hidden; }
       <p class="tag">Escribimos entre toda la comisión el recorrido de estos dos años. Cada quien lee solo las últimas palabras de quien escribió antes; al final, la trayectoria se despliega entera.</p>
     </div>
   </header>
+  <nav class="tabs" id="tabs" aria-label="Secciones">
+    <a href="#" data-tab="poem">El poema</a>
+    <a href="#ventanas" data-tab="ventanas">Nuestras ventanas</a>
+    <a href="#muestra" data-tab="muestra">Muestra</a>
+  </nav>
   <div id="notice" class="notice" hidden></div>
   <main id="app" aria-live="polite"></main>
   <footer class="foot"><span id="whoami"></span><span class="credit">Cartografía sensible colectiva · Taller de Integración Final · Ciclo de Complementación Curricular en Gestión Cultural · Escuela de Artes, Medios e Innovación · UNLaM</span></footer>
 </div>
 <div id="proj" class="proj" hidden></div>
+<dialog id="expoDlg" class="expo-dlg" aria-label="Ventana"></dialog>
 <div id="toast" class="toast" hidden></div>
 
 <script>
@@ -233,6 +310,13 @@ body.projecting { overflow: hidden; }
   let editTurns = null;      // gid whose verse count is being edited
   let justRevealed = null;
   let busy = false;
+  let windows = [];          // public windows (photos) of everyone
+  let myWindowId = store.get('cx.window', null);
+  let winEditing = false;
+  let winDraft = null;       // {dataUrl, w, h} chosen but not uploaded yet
+  let winColor = store.get('cx.color', '');
+  let winArmed = false;
+  let expo = { list: [], i: -1 };
 
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const nowS = () => Date.now() / 1000 + offset;
@@ -264,6 +348,9 @@ body.projecting { overflow: hidden; }
     if (h === 'nueva') return { view: 'new' };
     if (h.startsWith('p-')) return { view: 'game', gid: h.slice(2) };
     if (h.startsWith('proy-')) return { view: 'proj', gid: h.slice(5) };
+    if (h === 'ventanas') return { view: 'ventanas' };
+    if (h === 'muestra') return { view: 'muestra' };
+    if (h.startsWith('muestra-')) return { view: 'muestra', gid: h.slice(8) };
     return { view: 'lobby' };
   }
 
@@ -302,6 +389,7 @@ body.projecting { overflow: hidden; }
       return;
     }
     app.innerHTML = `
+      ${windowsBanner()}
       <section class="section">
         <div class="section-head"><h2>Recorridos en curso</h2>${newBtn}</div>
         <div class="list">${open.length ? open.map(card).join('') : '<p class="small">No hay recorridos abiertos. Empezá uno nuevo.</p>'}</div>
@@ -386,7 +474,7 @@ body.projecting { overflow: hidden; }
           <div class="poem ${anim ? 'unfold' : ''}">
             ${lines.length ? lines.map((l, i) => `<div class="verse" style="--i:${i}"><span class="v">${esc(l.text)}</span><span class="who">${esc(l.name || 'Anónimo')}${l.place ? `<span class="place">${esc(l.place)}</span>` : ''}</span></div>`).join('') : '<p class="small">Nadie llegó a escribir.</p>'}
           </div>
-          <div class="row"><a class="btn primary" href="#proy-${esc(g.id)}">Modo proyección</a><button class="btn" data-act="copy">Copiar poema</button><a class="btn" href="/api/export.txt?id=${esc(g.id)}" download>Descargar poema (.txt)</a>${share}</div>
+          <div class="row"><a class="btn primary" href="#proy-${esc(g.id)}">Modo proyección</a><a class="btn" href="#muestra-${esc(g.id)}">Ver la muestra</a><button class="btn" data-act="copy">Copiar poema</button><a class="btn" href="/api/export.txt?id=${esc(g.id)}" download>Descargar poema (.txt)</a>${share}</div>
           ${manage}
         </div>`;
       return;
@@ -460,7 +548,8 @@ body.projecting { overflow: hidden; }
     const lines = g.lines || [];
     const places = [...new Set(lines.map(l => (l.place || '').trim()).filter(Boolean))];
     const slides = [{ kind: 'intro' }];
-    lines.forEach((l, i) => slides.push({ kind: 'verse', l, prev: i ? lines[i - 1].text : '' }));
+    lines.forEach((l, i) => slides.push({ kind: 'verse', l, n: i + 1, total: lines.length, prev: i ? lines[i - 1].text : '', win: winById(l.window) }));
+    if (windows.length) slides.push({ kind: 'mosaic' });
     slides.push({ kind: 'outro', places, hands: g.hands, count: lines.length });
     return slides;
   }
@@ -483,24 +572,31 @@ body.projecting { overflow: hidden; }
     const slides = projSlides(g);
     proj.i = Math.max(0, Math.min(proj.i, slides.length - 1));
     const sl = slides[proj.i];
-    let stage;
+    let stage, bg = '';
     if (sl.kind === 'intro') {
       stage = `<p class="proj-sub">Cadáver exquisito de la comisión</p>
         <h1 class="proj-title">${esc(g.title)}</h1>
         <p class="proj-sub">${plural((g.lines || []).length, 'verso', 'versos')} · ${plural(g.hands, 'voz', 'voces')} · cada quien leyó solo el final del verso anterior</p>`;
     } else if (sl.kind === 'verse') {
       const sign = `<span>${esc(sl.l.name || 'Anónimo')}</span>${sl.l.place ? `<span class="place">${esc(sl.l.place)}</span>` : ''}`;
+      if (sl.win) bg = `<div class="proj-bg" style="--c:${esc(sl.win.color)}"><img src="${winSrc(sl.win)}" alt=""></div>`;
       stage = `${sl.prev ? `<p class="proj-prev">${esc(lastWordsOf(sl.prev, g.peek))}</p>` : '<p class="proj-prev" style="visibility:hidden">·</p>'}
         <p class="proj-verse">${esc(sl.l.text)}</p>
-        <p class="proj-sign">${sign}</p>`;
+        <p class="proj-sign">${sign}</p>
+        ${sl.win ? `<span class="proj-colorbar" style="--c:${esc(sl.win.color)}"></span>` : ''}`;
+    } else if (sl.kind === 'mosaic') {
+      stage = `<h1 class="proj-title">Nuestras ventanas</h1>
+        <p class="proj-sub">El aula fueron ${plural(windows.length, 'lugar', 'lugares')}</p>
+        <div class="proj-mosaic">${windows.map(w => `<div style="--c:${esc(w.color)}"><img src="${winSrc(w)}" alt=""></div>`).join('')}</div>`;
     } else {
       stage = `<h1 class="proj-title">${plural(sl.hands, 'voz', 'voces')}, un recorrido</h1>
         ${sl.places.length ? `<p class="proj-sub">Escribimos desde</p><div class="proj-places">${sl.places.map(p => `<span>${esc(p)}</span>`).join('')}</div>`
           : `<p class="proj-sub">${plural(sl.count, 'verso', 'versos')} escritos a muchas manos</p>`}`;
     }
     const pct = slides.length > 1 ? (proj.i / (slides.length - 1)) * 100 : 100;
-    const counter = sl.kind === 'verse' ? `${proj.i} / ${slides.length - 2}` : sl.kind === 'intro' ? 'Inicio' : 'Final';
-    projEl.innerHTML = `
+    const counter = sl.kind === 'verse' ? `${sl.n} / ${sl.total}` : sl.kind === 'intro' ? 'Inicio' : sl.kind === 'mosaic' ? 'Ventanas' : 'Final';
+    projEl.classList.toggle('photo', !!bg);
+    projEl.innerHTML = `${bg}
       <div class="proj-top"><span>Cartografía sensible · TIF</span><span>Gestión Cultural · UNLaM</span></div>
       <div class="proj-stage" data-zone="stage">${stage}</div>
       <div class="proj-bar">
@@ -514,6 +610,8 @@ body.projecting { overflow: hidden; }
       <div class="proj-progress"><i style="width:${pct}%"></i></div>`;
     projEl.hidden = false; document.body.classList.add('projecting');
     wake();
+    const nx = slides[proj.i + 1];
+    if (nx && nx.win) { const im = new Image(); im.src = winSrc(nx.win); }
   }
   const lastWordsOf = (text, n) => String(text || '').trim().split(/\s+/).slice(-n).join(' ');
 
@@ -563,11 +661,237 @@ body.projecting { overflow: hidden; }
     wake();
   });
 
+
+  /* ---------- Windows ---------- */
+  const SWATCHES = [['#2537c4','Azul'],['#7b3fa0','Violeta'],['#c2417a','Fucsia'],['#d64933','Rojo'],['#e8873a','Naranja'],['#e9c046','Amarillo'],
+    ['#7fae4e','Verde'],['#2f8f83','Turquesa'],['#5aa9e6','Celeste'],['#8a6a4f','Tierra'],['#9aa0b4','Niebla'],['#1f2233','Noche']];
+  const winById = id => windows.find(w => w.id === id) || null;
+  const winSrc = w => `/api/windows/${w.id}.jpg?v=${w.v}`;
+  const myWindow = () => winById(myWindowId);
+
+  function windowsBanner() {
+    const n = windows.length;
+    return `<a class="card" href="#ventanas">
+      <span class="t">Nuestras ventanas</span><span class="chip live">${n ? plural(n, 'ventana', 'ventanas') : 'nuevo'}</span>
+      <span class="meta"><span>${myWindow() ? 'Ya subiste tu ventana. Mirá las de la comisión.' : 'Subí una foto del lugar desde donde cursaste y elegí un color.'}</span></span>
+    </a>`;
+  }
+
+  function winTile(w) {
+    return `<figure class="win" style="--c:${esc(w.color)}"><div class="frame"><img src="${winSrc(w)}" alt="Ventana de ${esc(w.name || 'alguien de la comisión')}" loading="lazy"></div>
+      <figcaption><span>${esc(w.name || 'Sin nombre')}</span>${w.place ? `<span class="place">${esc(w.place)}</span>` : ''}</figcaption></figure>`;
+  }
+  function paintMosaic() {
+    const el = document.getElementById('win-mosaic'); if (!el) return;
+    const head = document.getElementById('win-count');
+    if (head) head.textContent = windows.length ? `Las ventanas de la comisión (${windows.length})` : 'Las ventanas de la comisión';
+    el.innerHTML = windows.length ? windows.map(winTile).join('') : '<p class="small">Todavía no hay ventanas. Subí la primera.</p>';
+  }
+
+  function viewWindows() {
+    const mine = myWindow();
+    const showForm = !mine || winEditing;
+    const color = winColor || (mine && mine.color) || '';
+    const previewSrc = winDraft ? winDraft.dataUrl : mine ? winSrc(mine) : '';
+    const form = `<form class="win-form" id="winForm">
+        <div><p class="eyebrow">${mine ? 'Editar mi ventana' : 'Tu ventana'}</p><h2>${mine ? 'Cambiá tu foto o tu color' : 'Sumá tu ventana'}</h2></div>
+        <div class="pick">
+          <div class="preview" id="win-preview" style="--c:${esc(color || 'var(--fold-edge)')}">${previewSrc ? `<img src="${esc(previewSrc)}" alt="Vista previa">` : 'Tu foto va a aparecer acá'}</div>
+          <div class="field">
+            <label>Tu foto</label>
+            <span class="btn file-btn">${previewSrc ? 'Elegir otra foto' : 'Elegir foto'}<input id="win-file" type="file" accept="image/*" aria-label="Elegir foto"></span>
+            <span class="hint">Tu escritorio, la pantalla con el mate al lado, la ventana, la mesa de la cocina: el lugar desde donde cursaste. Mejor sin caras.</span>
+          </div>
+        </div>
+        <div class="field">
+          <label>Tu color: cómo viviste estos dos años</label>
+          <div class="swatches" role="group" aria-label="Colores">
+            ${SWATCHES.map(([c, n]) => `<button type="button" class="swatch" style="--sw:${c}" data-color="${c}" aria-label="${n}" aria-pressed="${color.toLowerCase() === c}"></button>`).join('')}
+            <label class="swatch-custom" title="Otro color" style="${color && !SWATCHES.some(([c]) => c === color.toLowerCase()) ? `background:${esc(color)};border-style:solid` : ''}"><input id="win-color" type="color" value="${esc(color || '#2537c4')}" style="opacity:0;width:100%;height:100%;cursor:pointer" aria-label="Otro color"></label>
+          </div>
+        </div>
+        <div class="two">
+          <div class="field"><label for="win-name">Tu nombre</label>
+            <input id="win-name" maxlength="40" value="${esc((mine && mine.name) || myName)}" placeholder="El mismo con que firmaste tu verso">
+            <span class="hint">Usá el mismo nombre que en tu verso.</span></div>
+          <div class="field"><label for="win-place">Desde dónde cursaste <span class="small">(opcional)</span></label>
+            <input id="win-place" maxlength="60" value="${esc((mine && mine.place) || myPlace)}" placeholder="Tu ciudad, tu barrio"></div>
+        </div>
+        <div class="row"><button class="btn primary" type="submit">${mine ? 'Guardar cambios' : 'Subir mi ventana'}</button>${mine ? '<button class="btn quiet" type="button" data-win="cancel">Cancelar</button>' : ''}</div>
+      </form>`;
+    const mineCard = mine && !winEditing ? `<section class="section"><p class="eyebrow">Tu ventana</p>
+        <div class="row" style="align-items:flex-start">${`<div style="width:min(260px,100%)">${winTile(mine)}</div>`}
+          <div class="row"><button class="btn" data-win="edit">Cambiar foto o color</button>
+          <button class="btn ${winArmed ? 'danger' : 'quiet'}" data-win="delete">${winArmed ? '¿Seguro? Quitar mi ventana' : 'Quitar mi ventana'}</button></div></div></section>` : '';
+    app.innerHTML = `
+      <section class="win-intro">
+        <p class="eyebrow">Nuestras ventanas</p>
+        <h2>El aula fueron muchos lugares</h2>
+        <p>Cursamos a la distancia, cada quien desde su rincón. Subí una foto del lugar desde donde cursaste y elegí un color para cómo viviste estos dos años.</p>
+        <p class="small">Subila desde el mismo celular o compu con que escribiste tu verso, y firmá con el mismo nombre. Así, cuando se revele el poema, tu verso aparece sobre tu ventana.</p>
+      </section>
+      ${showForm ? form : mineCard}
+      <section class="section"><h2 id="win-count"></h2><div class="mosaic" id="win-mosaic"></div></section>`;
+    paintMosaic();
+    if (showForm) bindWinForm();
+  }
+
+  async function shrinkPhoto(file) {
+    const url = URL.createObjectURL(file);
+    try {
+      const img = new Image(); img.src = url; await img.decode();
+      const max = 1280, k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+      const w = Math.round(img.naturalWidth * k), h = Math.round(img.naturalHeight * k);
+      const c = document.createElement('canvas'); c.width = w; c.height = h;
+      const ctx = c.getContext('2d'); ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h); ctx.drawImage(img, 0, 0, w, h);
+      let q = .82, dataUrl = c.toDataURL('image/jpeg', q);
+      while (dataUrl.length > 880000 && q > .4) { q -= .12; dataUrl = c.toDataURL('image/jpeg', q); }
+      return { dataUrl, w, h };
+    } finally { URL.revokeObjectURL(url); }
+  }
+
+  function setPreviewColor(c) {
+    winColor = c; store.set('cx.color', c);
+    document.getElementById('win-preview')?.style.setProperty('--c', c);
+    document.querySelectorAll('.swatch').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.color === c.toLowerCase())));
+    const custom = document.querySelector('.swatch-custom');
+    if (custom) { const isCustom = !SWATCHES.some(([x]) => x === c.toLowerCase()); custom.style.background = isCustom ? c : ''; custom.style.borderStyle = isCustom ? 'solid' : ''; }
+  }
+
+  function bindWinForm() {
+    const file = document.getElementById('win-file');
+    file.addEventListener('change', async () => {
+      const f = file.files && file.files[0]; if (!f) return;
+      try {
+        winDraft = await shrinkPhoto(f);
+        const pv = document.getElementById('win-preview');
+        pv.innerHTML = `<img src="${winDraft.dataUrl}" alt="Vista previa">`;
+      } catch (_) { toast('No pude leer esa foto. Probá con una JPG o PNG.'); }
+    });
+    document.querySelectorAll('.swatch').forEach(b => b.addEventListener('click', () => setPreviewColor(b.dataset.color)));
+    document.getElementById('win-color').addEventListener('input', e => setPreviewColor(e.target.value));
+    document.getElementById('winForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      if (busy) return;
+      const mine = myWindow();
+      if (!winDraft && !mine) { toast('Elegí una foto para tu ventana.'); return; }
+      const color = winColor || (mine && mine.color);
+      if (!color) { toast('Elegí un color.'); return; }
+      const name = document.getElementById('win-name').value.trim().replace(/\s+/g, ' ').slice(0, 40);
+      if (!name) { toast('Escribí tu nombre.'); document.getElementById('win-name').focus(); return; }
+      const place = document.getElementById('win-place').value.trim().replace(/\s+/g, ' ').slice(0, 60);
+      myName = name; store.set('cx.name', name); renderWho();
+      if (place) { myPlace = place; store.set('cx.place', place); }
+      busy = true;
+      const btn = e.target.querySelector('button[type="submit"]'); btn.disabled = true; btn.textContent = 'Subiendo…';
+      try {
+        const r = await api('/api/windows', { name, place, color, image: winDraft ? winDraft.dataUrl : '', w: winDraft?.w, h: winDraft?.h });
+        myWindowId = r.window.id; store.set('cx.window', myWindowId);
+        if (!winById(myWindowId)) windows = [...windows, r.window];
+        else windows = windows.map(w => w.id === myWindowId ? r.window : w);
+        winDraft = null; winEditing = false;
+        toast(mine ? 'Listo, tu ventana se actualizó.' : '¡Gracias! Tu ventana ya está en el mosaico.');
+      } catch (err) { toast(err.message); }
+      busy = false; viewWindows();
+    });
+  }
+
+  document.addEventListener('click', async e => {
+    const b = e.target.closest('[data-win]'); if (!b) return;
+    const a = b.dataset.win;
+    if (a === 'edit') { winEditing = true; winArmed = false; viewWindows(); }
+    else if (a === 'cancel') { winEditing = false; winDraft = null; viewWindows(); }
+    else if (a === 'delete') {
+      if (!winArmed) { winArmed = true; viewWindows(); return; }
+      winArmed = false;
+      try { await api('/api/windows/delete', {}); windows = windows.filter(w => w.id !== myWindowId); myWindowId = null; store.set('cx.window', null); toast('Quitaste tu ventana.'); }
+      catch (err) { toast(err.message); }
+      viewWindows();
+    }
+  });
+
+  /* ---------- Exhibition ---------- */
+  function expoEntries(g) {
+    const list = [];
+    const used = new Set();
+    if (g) (g.lines || []).forEach((l, i) => { const w = winById(l.window); if (w) used.add(w.id); list.push({ line: l, n: i + 1, total: g.lines.length, prev: i ? g.lines[i - 1].text : '', peek: g.peek, win: w }); });
+    windows.filter(w => !used.has(w.id)).forEach(w => list.push({ win: w }));
+    return list;
+  }
+
+  function viewExpo(gid) {
+    const done = games.filter(x => x.status === 'done');
+    const g = gid ? done.find(x => x.id === gid) : done[0];
+    expo.list = expoEntries(g);
+    const tile = (en, i) => {
+      const w = en.win, l = en.line;
+      const name = (l && l.name) || (w && w.name) || 'Sin nombre';
+      const place = (l && l.place) || (w && w.place) || '';
+      const inner = w ? `<img src="${winSrc(w)}" alt="" loading="lazy">` : `<span class="only-verse">${esc(l.text)}</span>`;
+      return `<button class="tile" data-expo="${i}" style="--c:${esc(w ? w.color : 'var(--accent)')}" aria-label="${esc(l ? `Verso ${en.n}, de ${name}` : `Ventana de ${name}`)}">
+        <span class="frame">${inner}</span>
+        ${l ? `<span class="num">VERSO ${en.n}</span>` : '<span class="num">VENTANA</span>'}
+        <span class="who"><span>${esc(name)}</span>${place ? `<span class="place">${esc(place)}</span>` : ''}</span>
+      </button>`;
+    };
+    app.innerHTML = `
+      <section class="win-intro">
+        <p class="eyebrow">Muestra · Cartografía sensible</p>
+        <h2>${g ? esc(g.title) : 'Nuestras ventanas'}</h2>
+        <p>${g ? 'Recorré los lugares desde donde cursamos. Tocá una ventana para leer el verso que se escribió desde ahí y las palabras de las que partió.' : 'Recorré los lugares desde donde cursamos. Cuando se revele el poema, cada ventana va a mostrar el verso que se escribió desde ahí.'}</p>
+        <div class="row">${g ? `<a class="btn primary" href="#proy-${esc(g.id)}">Ver en modo proyección</a><a class="btn" href="/api/export.txt?id=${esc(g.id)}" download>Descargar poema (.txt)</a>` : ''}<a class="btn quiet" href="#ventanas">Sumar mi ventana</a></div>
+      </section>
+      ${expo.list.length ? `<div class="expo-grid">${expo.list.map(tile).join('')}</div>` : '<div class="empty"><p>Todavía no hay ventanas ni versos revelados para mostrar.</p></div>'}`;
+  }
+
+  const dlg = document.getElementById('expoDlg');
+  function openExpo(i) {
+    const en = expo.list[i]; if (!en) return;
+    expo.i = i;
+    const w = en.win, l = en.line;
+    const name = (l && l.name) || (w && w.name) || 'Sin nombre';
+    const place = (l && l.place) || (w && w.place) || '';
+    dlg.style.setProperty('--c', w ? w.color : 'var(--accent)');
+    dlg.innerHTML = `<div class="dlg">
+        <div class="dlg-photo">${w ? `<img src="${winSrc(w)}" alt="Ventana de ${esc(name)}">` : '<p class="small" style="color:#fff;padding:24px">Sin ventana</p>'}</div>
+        <div class="dlg-text">
+          ${l ? `<p class="eyebrow">Verso ${en.n} de ${en.total}</p>
+            ${en.prev ? `<p class="from">Partió de: … ${esc(lastWordsOf(en.prev, en.peek))}</p>` : '<p class="from">Abrió el poema</p>'}
+            <p class="verse">${esc(l.text)}</p>` : '<p class="eyebrow">Ventana</p><p class="from">Esta ventana no tiene un verso asociado.</p>'}
+          <p class="sign">${w ? `<span><span class="dot"></span>${esc(name)}</span>` : `<span>${esc(name)}</span>`}${place ? `<span class="place">${esc(place)}</span>` : ''}</p>
+        </div>
+        <div class="dlg-nav">
+          <button class="btn quiet" data-dlg="prev" ${i === 0 ? 'disabled' : ''}>← Anterior</button>
+          <button class="btn" data-dlg="close">Cerrar</button>
+          <button class="btn quiet" data-dlg="next" ${i === expo.list.length - 1 ? 'disabled' : ''}>Siguiente →</button>
+        </div>
+      </div>`;
+    if (!dlg.open) dlg.showModal();
+  }
+  app.addEventListener('click', e => { const t = e.target.closest('[data-expo]'); if (t) openExpo(+t.dataset.expo); });
+  dlg.addEventListener('click', e => {
+    const b = e.target.closest('[data-dlg]');
+    if (b) { const a = b.dataset.dlg; if (a === 'close') dlg.close(); else openExpo(expo.i + (a === 'next' ? 1 : -1)); return; }
+    if (e.target === dlg) dlg.close();
+  });
+  dlg.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' && expo.i < expo.list.length - 1) openExpo(expo.i + 1);
+    else if (e.key === 'ArrowLeft' && expo.i > 0) openExpo(expo.i - 1);
+  });
+
+  function paintTabs(view) {
+    const cur = view === 'ventanas' ? 'ventanas' : view === 'muestra' ? 'muestra' : 'poem';
+    document.querySelectorAll('#tabs a').forEach(a => { if (a.dataset.tab === cur) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+  }
+
   function render() {
     renderWho();
     if (!loaded) { app.innerHTML = `<div class="empty"><p class="eyebrow">Cargando</p><p>Buscando los recorridos en curso…</p></div>`; return; }
     const r = route();
     if (r.view !== 'proj' && proj.gid) closeProj();
+    paintTabs(r.view);
+    if (r.view === 'ventanas') return viewWindows();
+    if (r.view === 'muestra') return viewExpo(r.gid);
     if (r.view === 'new') return viewNew();
     if (r.view === 'proj') return viewProj(r.gid);
     if (r.view === 'game') return viewGame(r.gid);
@@ -670,15 +994,17 @@ body.projecting { overflow: hidden; }
     el.innerHTML = `Te quedan <strong>${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}</strong> · ⌘/Ctrl + Enter para enviar`;
   }
   setInterval(tick, 1000);
-  setInterval(() => { if (!myTurn && loaded && !proj.gid && !document.activeElement?.matches('input, select, textarea')) render(); }, 15000);
+  setInterval(() => { if (!myTurn && loaded && !proj.gid && ['lobby', 'game'].includes(route().view) && !document.activeElement?.matches('input, select, textarea')) render(); }, 15000);
 
-  window.addEventListener('hashchange', () => { armed = null; editTurns = null; render(); window.scrollTo(0, 0); });
+  window.addEventListener('hashchange', () => { armed = null; editTurns = null; winEditing = false; winArmed = false; winDraft = null; if (dlg.open) dlg.close(); render(); window.scrollTo(0, 0); });
 
   /* ---------- Live data ---------- */
   function apply(data) {
     offset = data.serverTime - Date.now() / 1000;
     const prev = new Map(games.map(g => [g.id, g.status]));
     games = data.games;
+    windows = data.windows || [];
+    if (myWindowId && !winById(myWindowId) && loaded) { myWindowId = null; store.set('cx.window', null); }
     const r = route();
     if (r.view === 'game' && prev.get(r.gid) === 'open' && games.find(g => g.id === r.gid)?.status === 'done') justRevealed = r.gid;
     if (myTurn) {
@@ -688,6 +1014,8 @@ body.projecting { overflow: hidden; }
     loaded = true; setNotice('');
     const typing = document.activeElement?.matches('input, select, textarea');
     if (r.view === 'proj' && proj.gid && games.find(g => g.id === r.gid)?.status === 'done') return;
+    if (r.view === 'ventanas' && loaded && document.getElementById('win-mosaic')) { paintMosaic(); return; }
+    if (r.view === 'muestra' && dlg.open) return;
     if (!(myTurn && r.gid === myTurn.gid) && !(typing && (r.view === 'new' || editTurns))) render();
   }
 
@@ -704,6 +1032,7 @@ body.projecting { overflow: hidden; }
   render();
   fetch('/api/games').then(r => r.json()).then(apply).catch(() => setNotice('No se pudo conectar con el servidor. Reintentando…'));
   connect();
+  api('/api/windows/me', {}).then(r => { myWindowId = r.window ? r.window.id : null; store.set('cx.window', myWindowId); if (route().view === 'ventanas' && !winEditing && !winDraft) render(); }).catch(() => {});
 })();
 </script>
 </body>

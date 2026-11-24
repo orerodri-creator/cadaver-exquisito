@@ -6,6 +6,7 @@ Si existe la variable DATABASE_URL, guarda en PostgreSQL (necesita psycopg).
     python server.py            -> http://localhost:8000
 """
 
+import base64
 import json
 import os
 import queue
@@ -13,6 +14,7 @@ import re
 import secrets
 import threading
 import time
+import unicodedata
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -33,6 +35,9 @@ MAX_PLACE = 60
 MAX_TURNS = 60
 ID_RE = re.compile(r"^[a-z0-9]{6,32}$")
 PLAYER_RE = re.compile(r"^[A-Za-z0-9_-]{16,64}$")
+COLOR_RE = re.compile(r"^#[0-9a-fA-F]{6}$")
+MAX_WINDOWS = 120
+MAX_IMAGE = 700_000  # bytes, after the browser shrinks the photo
 
 
 # ---------------------------------------------------------------- storage
@@ -91,9 +96,80 @@ class PgStore:
             c.execute("DELETE FROM games WHERE id = %s", (gid,))
 
 
+class FileWinStore:
+    """Windows (photos) live apart from the games, so the poem is never touched."""
+
+    def __init__(self, path):
+        self.path = path
+
+    def load(self):
+        if not self.path.exists():
+            return {}, {}
+        try:
+            raw = json.loads(self.path.read_text("utf-8"))
+        except (OSError, ValueError):
+            return {}, {}
+        metas, images = {}, {}
+        for wid, w in raw.items():
+            images[wid] = base64.b64decode(w.pop("img"))
+            metas[wid] = w
+        return metas, images
+
+    def save(self, meta, image):
+        self._dump()
+
+    def delete(self, wid):
+        self._dump()
+
+    def _dump(self):
+        out = {wid: {**m, "img": base64.b64encode(IMAGES[wid]).decode()} for wid, m in WINDOWS.items()}
+        tmp = self.path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(out, ensure_ascii=False), "utf-8")
+        tmp.replace(self.path)
+
+
+class PgWinStore:
+    def __init__(self, url):
+        import psycopg
+
+        self.psycopg = psycopg
+        self.url = url
+        with self._conn() as c:
+            c.execute("CREATE TABLE IF NOT EXISTS windows (id TEXT PRIMARY KEY, data JSONB NOT NULL, image BYTEA NOT NULL)")
+
+    def _conn(self):
+        return self.psycopg.connect(self.url, autocommit=True)
+
+    def load(self):
+        with self._conn() as c:
+            rows = c.execute("SELECT id, data, image FROM windows").fetchall()
+        metas = {wid: (d if isinstance(d, dict) else json.loads(d)) for wid, d, _ in rows}
+        images = {wid: bytes(img) for wid, _, img in rows}
+        return metas, images
+
+    def save(self, meta, image):
+        with self._conn() as c:
+            c.execute(
+                "INSERT INTO windows (id, data, image) VALUES (%s, %s, %s) "
+                "ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, image = EXCLUDED.image",
+                (meta["id"], json.dumps(meta, ensure_ascii=False), image),
+            )
+
+    def delete(self, wid):
+        with self._conn() as c:
+            c.execute("DELETE FROM windows WHERE id = %s", (wid,))
+
+
 LOCK = threading.RLock()
 STORE = PgStore(DATABASE_URL) if DATABASE_URL else FileStore(DATA_FILE)
 GAMES = STORE.load()
+try:
+    WIN_STORE = PgWinStore(DATABASE_URL) if DATABASE_URL else FileWinStore(DATA_FILE.with_name(DATA_FILE.stem + "-ventanas.json"))
+    WINDOWS, IMAGES = WIN_STORE.load()
+except Exception as e:  # noqa: BLE001  never let the photos take the poem down
+    print(f"AVISO: no se pudieron cargar las ventanas ({e!r}). El poema sigue funcionando.", flush=True)
+    WIN_STORE = FileWinStore(DATA_FILE.with_name(DATA_FILE.stem + "-ventanas.json"))
+    WINDOWS, IMAGES = {}, {}
 
 # ---------------------------------------------------------------- live updates
 
@@ -140,7 +216,8 @@ def public_game(g):
         "hands": len({l["by"] for l in lines}),
     }
     if g["status"] == "done":
-        base["lines"] = [{"text": l["text"], "name": l.get("name") or "", "place": l.get("place") or ""} for l in lines]
+        base["lines"] = [{"text": l["text"], "name": l.get("name") or "", "place": l.get("place") or "",
+                          "window": window_for(l.get("by"), l.get("name"))} for l in lines]
     else:
         last = lines[-1]["text"] if lines else ""
         base["peekWords"] = " ".join(last.split()[-g["peek"]:]) if last else ""
@@ -152,7 +229,94 @@ def public_game(g):
 
 def public_list():
     games = sorted(GAMES.values(), key=lambda g: g["createdAt"], reverse=True)
-    return {"games": [public_game(g) for g in games], "serverTime": now()}
+    return {"games": [public_game(g) for g in games], "windows": public_windows(), "serverTime": now()}
+
+
+# ---------------------------------------------------------------- windows
+
+def norm_name(name):
+    s = unicodedata.normalize("NFKD", str(name or "")).encode("ascii", "ignore").decode().lower()
+    return re.sub(r"\s+", " ", s).strip()
+
+
+def window_for(pid, name):
+    """The window of whoever wrote a verse: same browser first, then same name."""
+    for w in WINDOWS.values():
+        if pid and w.get("playerId") == pid:
+            return w["id"]
+    key = norm_name(name)
+    if key:
+        for w in sorted(WINDOWS.values(), key=lambda w: w["at"]):
+            if norm_name(w.get("name")) == key:
+                return w["id"]
+    return None
+
+
+def public_window(w):
+    return {"id": w["id"], "name": w.get("name") or "", "place": w.get("place") or "", "color": w["color"],
+            "w": w.get("w", 0), "h": w.get("h", 0), "v": int(w.get("updated", w["at"]) * 1000)}
+
+
+def public_windows():
+    return [public_window(w) for w in sorted(WINDOWS.values(), key=lambda w: w["at"])]
+
+
+def own_window(pid):
+    return next((w for w in WINDOWS.values() if w.get("playerId") == pid), None)
+
+
+def save_window(body):
+    pid = need_player(body)
+    color = str(body.get("color") or "")
+    if not COLOR_RE.match(color):
+        raise Fail(400, "Elegí un color para tu ventana.")
+    mine = own_window(pid)
+    raw = str(body.get("image") or "")
+    if not raw and mine:
+        image = IMAGES[mine["id"]]  # only the color, name or place changed
+    else:
+        if "," in raw[:40]:
+            raw = raw.split(",", 1)[1]
+        try:
+            image = base64.b64decode(raw, validate=True)
+        except ValueError:
+            raise Fail(400, "Elegí una foto para tu ventana.")
+        if not image.startswith(b"\xff\xd8"):
+            raise Fail(400, "No pude leer la foto. Probá con una JPG o PNG.")
+        if len(image) > MAX_IMAGE:
+            raise Fail(413, "La foto es demasiado pesada. Probá con otra.")
+    if not mine and len(WINDOWS) >= MAX_WINDOWS:
+        raise Fail(507, "Ya se llegó al máximo de ventanas.")
+    wid = mine["id"] if mine else secrets.token_hex(5)
+    meta = {
+        "id": wid, "playerId": pid,
+        "name": clean(body.get("name"), MAX_NAME),
+        "place": clean(body.get("place"), MAX_PLACE),
+        "color": color.lower(),
+        "w": int(body.get("w") or (mine or {}).get("w", 0)), "h": int(body.get("h") or (mine or {}).get("h", 0)),
+        "at": now() if not mine else mine["at"],
+        "updated": now(),
+    }
+    WINDOWS[wid] = meta
+    IMAGES[wid] = image
+    WIN_STORE.save(meta, image)
+    return {"window": public_window(meta)}
+
+
+def delete_window(body):
+    pid = need_player(body)
+    mine = own_window(pid)
+    if mine:
+        del WINDOWS[mine["id"]]
+        IMAGES.pop(mine["id"], None)
+        WIN_STORE.delete(mine["id"])
+    return {}
+
+
+def my_window(body):
+    pid = need_player(body)
+    mine = own_window(pid)
+    return {"window": public_window(mine) if mine else None}
 
 
 class Fail(Exception):
@@ -333,7 +497,23 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json(200, {"ok": True})
         if path == "/api/export.txt":
             return self.export()
+        m = re.match(r"^/api/windows/([a-z0-9]{6,32})\.jpg$", path)
+        if m:
+            return self.window_image(m.group(1))
         return self.static(path)
+
+    def window_image(self, wid):
+        with LOCK:
+            data = IMAGES.get(wid)
+        if data is None:
+            self.send_error(404)
+            return
+        self.send_response(200)
+        self.send_header("Content-Type", "image/jpeg")
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "public, max-age=31536000, immutable")
+        self.end_headers()
+        self.wfile.write(data)
 
     def do_HEAD(self):
         self.send_response(200 if self.path.split("?", 1)[0] in ("/", "/healthz") else 404)
@@ -421,7 +601,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json(429, {"error": "Demasiadas acciones seguidas. Esperá un minuto."})
         try:
             length = int(self.headers.get("Content-Length") or 0)
-            if length > 10_000:
+            limit = 1_200_000 if path == "/api/windows" else 10_000
+            if length > limit:
                 raise Fail(413, "Mensaje demasiado largo.")
             body = json.loads(self.rfile.read(length) or b"{}")
             if not isinstance(body, dict):
@@ -429,12 +610,19 @@ class Handler(BaseHTTPRequestHandler):
             with LOCK:
                 if path == "/api/games":
                     result = create_game(body)
+                elif path == "/api/windows":
+                    result = save_window(body)
+                elif path == "/api/windows/delete":
+                    result = delete_window(body)
+                elif path == "/api/windows/me":
+                    result = my_window(body)
                 else:
                     m = re.match(r"^/api/games/([a-z0-9]+)/([a-z]+)$", path)
                     if not m or m.group(2) not in ACTIONS or not ID_RE.match(m.group(1)):
                         raise Fail(404, "Ruta desconocida.")
                     result = ACTIONS[m.group(2)](need_game(m.group(1)), body)
-            broadcast()
+            if path != "/api/windows/me":
+                broadcast()
             self.send_json(200, {"ok": True, **result})
         except Fail as f:
             self.send_json(f.status, {"error": f.message})
