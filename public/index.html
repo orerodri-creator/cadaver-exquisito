@@ -213,6 +213,14 @@ body.projecting { overflow: hidden; }
 .label .proj-sign { font-size: clamp(.75rem, 1.15vw, 1rem); }
 .proj.photo .proj-stage > * { animation-duration: 1s; }
 .pbg img { animation: photoIn 1.2s ease both; }
+/* The window's colour sets the dominant of the whole slide. */
+.pbg { background: var(--c, #1a1d1f); }
+.pbg .blur { mix-blend-mode: luminosity; opacity: .55; }
+.pbg .tint { position: absolute; inset: 0; background: var(--c); mix-blend-mode: color; opacity: .5; pointer-events: none; animation: photoIn 1.2s ease both; }
+.pbg .glow { position: absolute; inset: 0; background: var(--c); mix-blend-mode: soft-light; opacity: .35; pointer-events: none; }
+.proj.photo.tinted::after { background: linear-gradient(180deg, color-mix(in srgb, var(--c) 30%, rgba(236,230,216,.94)) 0%, color-mix(in srgb, var(--c) 22%, rgba(236,230,216,.8)) 55%, rgba(236,230,216,0) 100%); }
+.proj.tinted:not(.photo) { background-color: color-mix(in srgb, var(--c) 26%, var(--mp)); }
+.proj.tinted .label .proj-kicker { color: #FBF8F1; text-shadow: 0 1px 10px rgba(0,0,0,.6); }
 @keyframes photoIn { from { opacity: 0; } to { opacity: 1; } }
 .proj-title { font-family: var(--font-display); font-style: italic; font-weight: 700; font-size: clamp(2.4rem, 6.4vw, 5.6rem); line-height: 1; max-width: 18ch; text-wrap: balance; color: var(--mi); margin: 0; }
 .proj-sub { font-size: clamp(1rem, 1.9vw, 1.5rem); color: var(--mm); max-width: 44ch; margin: 0; }
@@ -827,7 +835,7 @@ barcelona|41.3874|2.1686`.split('\n').forEach(row => { const [names, lat, lon] =
         <p class="proj-verse">${esc(sl.l.text)}</p>
         <p class="proj-sign" style="${c}"><i class="pin"></i><span>${esc(sl.l.name || 'Anónimo')}</span>${sl.l.place ? `<span class="place">— ${esc(sl.l.place)}</span>` : ''}</p>`;
       if (sl.win) {
-        bg = `<div class="pbg"><img class="blur" src="${winSrc(sl.win)}" alt=""><img class="full" src="${winSrc(sl.win)}" alt=""></div>`;
+        bg = `<div class="pbg" style="${c}"><img class="blur" src="${winSrc(sl.win)}" alt=""><img class="full" src="${winSrc(sl.win)}" alt=""><i class="tint"></i><i class="glow"></i></div>`;
         stage = `<div class="label">${text}</div>`;
       } else stage = text;
     } else if (sl.kind === 'mosaic') {
@@ -845,6 +853,9 @@ barcelona|41.3874|2.1686`.split('\n').forEach(row => { const [names, lat, lon] =
     const here = sl.kind === 'verse' ? sl.n : sl.kind === 'intro' ? 0 : nLines + 1;
     const route = `<div class="route" aria-hidden="true">${(g.lines || []).map((_, i) => `<i class="${i + 1 < here ? 'past' : i + 1 === here ? 'here' : ''}"></i>`).join('')}</div>`;
     const counter = sl.kind === 'verse' ? `${sl.n} / ${sl.total}` : sl.kind === 'intro' ? 'Inicio' : sl.kind === 'mosaic' ? 'Ventanas' : 'Final';
+    const tint = sl.kind === 'verse' && sl.win && sl.win.color;
+    projEl.classList.toggle('tinted', !!tint);
+    if (tint) projEl.style.setProperty('--c', sl.win.color); else projEl.style.removeProperty('--c');
     projEl.classList.toggle('photo', !!bg);
     projEl.classList.toggle('bare', proj.bare && !!bg);
     projEl.innerHTML = `${bg}
