@@ -174,6 +174,7 @@ body.projecting { overflow: hidden; }
 .route i.past { background: var(--mi); border-color: var(--mi); }
 .route i.here { background: var(--mr); border-color: var(--mr); transform: scale(1.9); box-shadow: 0 0 0 4px rgba(194,70,46,.18); }
 .proj-stage { display: grid; align-content: center; justify-items: center; text-align: center; gap: clamp(14px, 2.6vh, 32px); min-height: 0; overflow: hidden; padding: 12px clamp(12px, 4vw, 72px); }
+.proj-rehearsal { color: var(--mr); font-weight: 700; }
 .proj-kicker { font-family: var(--font-mono); font-size: clamp(.75rem, 1.2vw, 1rem); letter-spacing: .18em; text-transform: uppercase; color: var(--mr); }
 .proj-prev { font-family: var(--font-display); font-style: italic; font-size: clamp(1rem, 2vw, 1.6rem); color: var(--mm); max-width: 40ch; }
 .proj-prev::before { content: "… "; }
@@ -444,6 +445,7 @@ dialog.expo-dlg::backdrop { background: rgba(31, 44, 48, .72); }
     if (h === 'nueva') return { view: 'new' };
     if (h.startsWith('p-')) return { view: 'game', gid: h.slice(2) };
     if (h.startsWith('proy-')) return { view: 'proj', gid: h.slice(5) };
+    if (h === 'ensayo' || h.startsWith('ensayo-')) { const [, eg = '', key = ''] = h.split('-'); return { view: 'proj', gid: 'ensayo', eg, key }; }
     if (h === 'ventanas') return { view: 'ventanas' };
     if (h === 'muestra') return { view: 'muestra' };
     if (h.startsWith('muestra-')) return { view: 'muestra', gid: h.slice(8) };
@@ -557,6 +559,7 @@ dialog.expo-dlg::backdrop { background: rgba(31, 44, 48, .72); }
       </form>` : '';
     const manage = mineGame ? `${turnsEditor}<div class="row">
         ${g.status !== 'done' && editTurns !== gid ? `<button class="btn quiet" data-act="turns-edit">Cambiar cantidad de versos</button>` : ''}
+        ${g.status !== 'done' && windows.length ? `<button class="btn quiet" data-act="ensayo">Ensayo de la proyección</button>` : ''}
         ${g.status !== 'done' && g.count ? `<button class="btn quiet" data-act="reveal">${armed === 'reveal:' + gid ? '¿Seguro? Revelar ahora' : 'Revelar antes de tiempo'}</button>` : ''}
         ${g.count && windows.length && linkOpen !== gid ? `<button class="btn quiet" data-act="links-open">Unir fotos con versos</button>` : ''}
         <button class="btn ${armed === 'delete:' + gid ? 'danger' : 'quiet'}" data-act="delete">${armed === 'delete:' + gid ? '¿Seguro? Borrar partida' : 'Borrar'}</button>
@@ -975,6 +978,21 @@ barcelona|41.3874|2.1686`.split('\n').forEach(row => { const [names, lat, lon] =
         ${inset}</div>${main}</div>` };
   }
 
+  /* Rehearsal: the real photos, colors and places, with stand-in text where each verse will go.
+     Hidden verses never leave the server, so nothing of the poem shows before the reveal. */
+  const rehearsalOk = {};  // "gid-key" -> true / false once the server has checked the key
+  function rehearsalGame() {
+    const r = route(), real = games.find(g => g.id === r.eg);
+    if (!real || rehearsalOk[r.eg + '-' + r.key] !== true) return null;
+    const first = w => (w.name || 'alguien').split(/[\s,(-]/)[0];
+    const lines = windows.map(w => ({ text: `Acá va a aparecer el verso de ${first(w)}, que se revela el 3 de diciembre`,
+      name: w.name, place: w.place, window: w.id }));
+    lines.forEach(fixSign);
+    return { id: 'ensayo', rehearsal: true, title: real ? real.title : 'Cartografía sensible', peek: real ? real.peek : 3,
+      status: 'done', hands: lines.length, lines };
+  }
+  const projGame = id => id === 'ensayo' ? (loaded && windows.length ? rehearsalGame() : null) : games.find(x => x.id === id);
+
   function projSlides(g) {
     const lines = g.lines || [];
     const places = [...new Set(lines.map(l => (l.place || '').trim()).filter(Boolean))];
@@ -995,7 +1013,19 @@ barcelona|41.3874|2.1686`.split('\n').forEach(row => { const [names, lat, lon] =
   }
 
   function viewProj(gid) {
-    const g = games.find(x => x.id === gid);
+    const g = projGame(gid);
+    if (gid === 'ensayo' && !g) {
+      closeProj();
+      const r = route(), k = r.eg + '-' + r.key;
+      if (r.eg && r.key && loaded && rehearsalOk[k] === undefined) {
+        rehearsalOk[k] = null;
+        api(`/api/games/${r.eg}/ensayo`, { key: r.key }).then(() => { rehearsalOk[k] = true; }).catch(() => { rehearsalOk[k] = false; })
+          .finally(() => { if (route().view === 'proj') render(); });
+      }
+      const wait = loaded && r.eg && r.key && rehearsalOk[k] !== false;
+      app.innerHTML = `<a class="back" href="#">← Volver</a><div class="empty"><p class="eyebrow">${wait ? 'Cargando' : 'Ensayo'}</p><p>${wait ? 'Preparando el ensayo de la proyección…' : 'Este link de ensayo no es válido. Pedíselo a quien coordina.'}</p></div>`;
+      return;
+    }
     if (!g || g.status !== 'done') {
       closeProj();
       app.innerHTML = `<a class="back" href="#">← Volver</a><div class="empty"><p class="eyebrow">Todavía no</p><p>El modo proyección se habilita cuando la trayectoria está revelada.</p>${g ? `<a class="btn" href="#p-${esc(g.id)}">Ir a la partida</a>` : ''}</div>`;
@@ -1042,7 +1072,7 @@ barcelona|41.3874|2.1686`.split('\n').forEach(row => { const [names, lat, lon] =
         ${credit}`;
     }
     const here = sl.kind === 'verse' ? sl.n : sl.kind === 'intro' ? 0 : nLines + 1;
-    const route = `<div class="route" aria-hidden="true">${(g.lines || []).map((_, i) => `<i class="${i + 1 < here ? 'past' : i + 1 === here ? 'here' : ''}"></i>`).join('')}</div>`;
+    const routeBar = `<div class="route" aria-hidden="true">${(g.lines || []).map((_, i) => `<i class="${i + 1 < here ? 'past' : i + 1 === here ? 'here' : ''}"></i>`).join('')}</div>`;
     const counter = sl.kind === 'verse' ? `${sl.n} / ${sl.total}` : sl.kind === 'intro' ? 'Inicio' : sl.kind === 'mosaic' ? 'Ventanas' : sl.kind === 'map' ? 'Mapa' : 'Final';
     const tint = sl.kind === 'verse' && sl.win && sl.win.color;
     projEl.classList.toggle('tinted', !!tint);
@@ -1050,8 +1080,8 @@ barcelona|41.3874|2.1686`.split('\n').forEach(row => { const [names, lat, lon] =
     projEl.classList.toggle('photo', !!bg);
     projEl.classList.toggle('bare', proj.bare && !!bg);
     projEl.innerHTML = `${bg}
-      <div class="proj-top"><span><b>Cartografía sensible</b> · TIF</span><span>Gestión Cultural · UNLaM</span></div>
-      ${route}
+      <div class="proj-top"><span><b>Cartografía sensible</b> · TIF</span>${g.rehearsal ? '<span class="proj-rehearsal">Ensayo · los versos se revelan el 3 de diciembre</span>' : '<span>Gestión Cultural · UNLaM</span>'}</div>
+      ${routeBar}
       <div class="proj-stage" data-zone="stage">${stage}</div>
       <div class="proj-bar">
         <button class="proj-btn" data-proj="prev" aria-label="Anterior">←</button>
@@ -1071,7 +1101,7 @@ barcelona|41.3874|2.1686`.split('\n').forEach(row => { const [names, lat, lon] =
   const lastWordsOf = (text, n) => String(text || '').trim().split(/\s+/).slice(-n).join(' ');
 
   function projGo(d) {
-    const g = games.find(x => x.id === proj.gid); if (!g) return;
+    const g = projGame(proj.gid); if (!g) return;
     const n = projSlides(g).length;
     const next = Math.max(0, Math.min(n - 1, proj.i + d));
     if (next === proj.i) { if (proj.auto && d > 0) toggleAuto(); return; }
@@ -1098,7 +1128,7 @@ barcelona|41.3874|2.1686`.split('\n').forEach(row => { const [names, lat, lon] =
       const a = b.dataset.proj;
       if (a === 'prev') projGo(-1); else if (a === 'next') projGo(1);
       else if (a === 'auto') toggleAuto(); else if (a === 'full') toggleFull(); else if (a === 'music') toggleMusic(); else if (a === 'bare') { proj.bare = !proj.bare; viewProj(proj.gid); }
-      else if (a === 'exit') { const id = proj.gid; closeProj(); location.hash = 'p-' + id; }
+      else if (a === 'exit') { const id = proj.gid; closeProj(); location.hash = id === 'ensayo' ? '' : 'p-' + id; }
       return;
     }
     if (e.target.closest('[data-zone="stage"]')) projGo(e.clientX < innerWidth / 3 ? -1 : 1);
@@ -1114,7 +1144,7 @@ barcelona|41.3874|2.1686`.split('\n').forEach(row => { const [names, lat, lon] =
     else if (k === 'p' || k === 'P') toggleAuto();
     else if (k === 'm' || k === 'M') toggleMusic();
     else if (k === 'v' || k === 'V') { proj.bare = !proj.bare; viewProj(proj.gid); }
-    else if (k === 'Escape' && !document.fullscreenElement) { const id = proj.gid; closeProj(); location.hash = 'p-' + id; }
+    else if (k === 'Escape' && !document.fullscreenElement) { const id = proj.gid; closeProj(); location.hash = id === 'ensayo' ? '' : 'p-' + id; }
     wake();
   });
 
@@ -1555,6 +1585,14 @@ barcelona|41.3874|2.1686`.split('\n').forEach(row => { const [names, lat, lon] =
     else if (act === 'delete') del(g);
     else if (act === 'turns-edit') { editTurns = g.id; armed = null; render(); document.getElementById('turns-input')?.focus(); }
     else if (act === 'turns-cancel') { editTurns = null; render(); }
+    else if (act === 'ensayo') {
+      api(`/api/games/${g.id}/ensayo`, {}).then(x => {
+        rehearsalOk[g.id + '-' + x.key] = true;
+        const url = `${location.origin}${location.pathname}#ensayo-${g.id}-${x.key}`;
+        location.hash = `ensayo-${g.id}-${x.key}`;
+        copyText(url, 'Link del ensayo copiado. Solo lo puede abrir quien lo tenga.');
+      }).catch(err => toast(err.message));
+    }
     else if (act === 'links-open') { linkOpen = g.id; delete linkData[g.id]; render(); loadLinks(g.id); }
     else if (act === 'links-close') { linkOpen = null; render(); }
     else if (act === 'share') copyText(location.origin + location.pathname + '#p-' + g.id, 'Enlace copiado. Mandalo a quien siga.');
@@ -1589,7 +1627,7 @@ barcelona|41.3874|2.1686`.split('\n').forEach(row => { const [names, lat, lon] =
     }
     loaded = true; setNotice('');
     const typing = document.activeElement?.matches('input, select, textarea');
-    if (r.view === 'proj' && proj.gid && games.find(g => g.id === r.gid)?.status === 'done') return;
+    if (r.view === 'proj' && proj.gid && proj.gid !== 'ensayo' && games.find(g => g.id === r.gid)?.status === 'done') return;
     if (r.view === 'ventanas' && loaded && document.getElementById('win-mosaic')) { paintMosaic(); return; }
     if (r.view === 'muestra' && dlg.open) return;
     if (!(myTurn && r.gid === myTurn.gid) && !(typing && (r.view === 'new' || editTurns || linkOpen || mineEdit))) render();

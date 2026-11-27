@@ -589,9 +589,23 @@ def claim_line(g, body):
     return my_lines(g, body)
 
 
+def rehearsal(g, body):
+    """The rehearsal link: the coordinator gets its secret key; anyone else needs that key to open it."""
+    pid = need_player(body)
+    key = g.get("rehearsalKey") or ""
+    if g["createdBy"] == pid:
+        if not key:
+            key = g["rehearsalKey"] = secrets.token_hex(6)
+            STORE.save(g)
+        return {"key": key}
+    if key and secrets.compare_digest(str(body.get("key") or ""), key):
+        return {"key": key}
+    raise Fail(403, "Este link de ensayo no es válido. Pedíselo a quien coordina.")
+
+
 ACTIONS = {"take": take_turn, "lines": add_line, "release": release, "reveal": reveal, "delete": delete_game,
            "turns": set_turns, "mine": my_lines, "edit": edit_line,
-           "links": link_info, "link": set_link, "grant": grant_line, "claim": claim_line}
+           "links": link_info, "link": set_link, "grant": grant_line, "claim": claim_line, "ensayo": rehearsal}
 
 # ---------------------------------------------------------------- rate limit
 
@@ -765,7 +779,7 @@ class Handler(BaseHTTPRequestHandler):
                     if not m or m.group(2) not in ACTIONS or not ID_RE.match(m.group(1)):
                         raise Fail(404, "Ruta desconocida.")
                     result = ACTIONS[m.group(2)](need_game(m.group(1)), body)
-            if path != "/api/windows/me" and not path.endswith(("/mine", "/links")):
+            if path != "/api/windows/me" and not path.endswith(("/mine", "/links", "/ensayo")):
                 broadcast()
             self.send_json(200, {"ok": True, **result})
         except Fail as f:
