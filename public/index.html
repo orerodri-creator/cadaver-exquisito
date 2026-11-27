@@ -698,6 +698,7 @@ mercedes|-34.6515|-59.4307
 necochea|-38.5545|-58.7396
 san nicolas,san nicolas de los arroyos|-33.3350|-60.2250
 azul|-36.7770|-59.8580
+jesus maria|-30.9814|-64.0942
 cordoba|-31.4201|-64.1888
 rosario|-32.9442|-60.6505
 mendoza|-32.8895|-68.8458
@@ -715,6 +716,8 @@ san juan|-31.5375|-68.5364
 san luis|-33.3017|-66.3378
 rio gallegos|-51.6230|-69.2168
 ushuaia|-54.8019|-68.3030
+general roca|-39.0333|-67.5833
+carmen de patagones|-40.8000|-62.9833
 bariloche,san carlos de bariloche|-41.1335|-71.3103
 comodoro rivadavia|-45.8641|-67.4966
 viedma|-40.8135|-62.9967
@@ -738,6 +741,14 @@ barcelona|41.3874|2.1686`.split('\n').forEach(row => { const [names, lat, lon] =
   const normPlace = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[.]/g, '').replace(/\s+/g, ' ').trim();
   const NOISE = /\b(partido de|provincia de|prov de|pcia de|pcia|prov|localidad de|ciudad de|barrio de|barrio|zona oeste|zona sur|zona norte|gba|argentina|pba)\b/g;
   const GAZ_KEYS = () => GAZ_KEYS.k || (GAZ_KEYS.k = [...GAZ.keys()].sort((a, b) => b.length - a.length));
+  /* Some people typed their place inside the name field ("Analía, Jesús María, Córdoba").
+     When the place is empty and the end of the name is a known place, split it off. */
+  function fixSign(l) {
+    if (!l || (l.place || '').trim() || !l.name) return l;
+    const m = l.name.match(/^(.+?)\s*[,.;]\s+(.+)$/) || l.name.match(/^(.+?)\s*[-–—(]\s*(.+?)\)?$/);
+    if (m && coordsOf(m[2])) { l.name = m[1].trim(); l.place = m[2].trim(); }
+    return l;
+  }
   function coordsOf(place) {
     const whole = normPlace(place);
     const province = /\b(provincia|pcia|prov|pba)\b/.test(whole);
@@ -1206,7 +1217,7 @@ barcelona|41.3874|2.1686`.split('\n').forEach(row => { const [names, lat, lon] =
   /* ---------- Coordinator: which photo goes with each verse (names only, never the hidden text) ---------- */
   function loadLinks(gid) {
     api(`/api/games/${gid}/links`, {})
-      .then(r => { linkData[gid] = r; })
+      .then(r => { (r.links || []).forEach(fixSign); linkData[gid] = r; })
       .catch(err => { toast(err.message); linkOpen = null; })
       .finally(() => { if (route().gid === gid) paintLinks(gid); });
   }
@@ -1363,6 +1374,7 @@ barcelona|41.3874|2.1686`.split('\n').forEach(row => { const [names, lat, lon] =
     offset = data.serverTime - Date.now() / 1000;
     const prev = new Map(games.map(g => [g.id, g.status]));
     games = data.games;
+    games.forEach(g => (g.lines || []).forEach(fixSign));
     windows = data.windows || [];
     if (myWindowId && !winById(myWindowId) && loaded) { myWindowId = null; store.set('cx.window', null); }
     const r = route();
