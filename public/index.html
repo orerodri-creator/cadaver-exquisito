@@ -339,9 +339,15 @@ dialog.expo-dlg::backdrop { background: rgba(31, 44, 48, .72); }
 .proj-map .sea { font-family: var(--font-display); font-style: italic; font-size: 20px; fill: var(--mm); }
 .proj-map .isl { font-family: var(--font-mono); font-size: 12px; fill: var(--mm); text-anchor: middle; letter-spacing: .06em; text-transform: uppercase; }
 .proj-map .zoom { fill: none; stroke: var(--mr); stroke-width: 1.6; }
+.proj-map .trip { fill: none; stroke: var(--mr); stroke-width: 1.6; stroke-dasharray: 5 4; stroke-linejoin: round; stroke-linecap: round; opacity: .7; animation: tripIn 2.4s ease both; stroke-dashoffset: 0; }
+.map-inset .trip { stroke-width: 1; stroke-dasharray: 3 2.5; }
+@keyframes tripIn { from { opacity: 0; } to { opacity: .7; } }
+.map-km { display: grid; gap: 2px; margin: 0; }
+.map-km span, .map-km small { font-family: var(--font-mono); font-size: clamp(.7rem, 1vw, .9rem); letter-spacing: .14em; text-transform: uppercase; color: var(--mm); }
+.map-km b { font-family: var(--font-display); font-style: italic; font-weight: 400; font-size: clamp(2.4rem, 5vw, 4.8rem); line-height: 1; color: var(--mr); }
 .proj-map .d { fill: var(--mr); stroke: #F6F1E5; stroke-width: 2; animation: pinIn .6s ease both; }
 .proj-map .lbl text { font-family: var(--font-mono); fill: var(--mi); letter-spacing: .04em; paint-order: stroke; stroke: #F6F1E5; stroke-width: 4px; stroke-linejoin: round; }
-.map-inset { margin: 0; width: min(38vw, 100%, calc((100vh - 400px) * 1.35)); border: 1px solid var(--mi); background: rgba(236,230,216,.9); padding: 8px 8px 4px; }
+.map-inset { margin: 0; width: min(34vw, 100%, max(240px, calc((100vh - 580px) * 1.35))); border: 1px solid var(--mi); background: rgba(236,230,216,.9); padding: 8px 8px 4px; }
 .map-inset figcaption { font-family: var(--font-mono); font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; color: var(--mr); margin-bottom: 4px; }
 .map-inset svg { width: 100%; height: auto; display: block; }
 .map-inset .sea { font-size: 12px; text-anchor: middle; }
@@ -947,9 +953,27 @@ barcelona|41.3874|2.1686`.split('\n').forEach(row => { const [names, lat, lon] =
       return '';
     }).join('');
   }
+  /* The trip: each verse's place in writing order (its photo's place when the verse has none),
+     joined stop to stop. Distances are great-circle km, so "Recorrimos" is a straight-line sum. */
+  function trip(g) {
+    const pts = [];
+    (g.lines || []).forEach(l => {
+      const k = placeKey(l.place) || placeKey(winById(l.window)?.place); if (!k) return;
+      const c = GAZ.get(k), last = pts[pts.length - 1];
+      if (!last || last[0] !== c[0] || last[1] !== c[1]) pts.push(c);
+    });
+    const rad = d => d * Math.PI / 180;
+    const km = pts.slice(1).reduce((sum, b, i) => {
+      const a = pts[i], h = Math.sin(rad(b[0] - a[0]) / 2) ** 2 + Math.cos(rad(a[0])) * Math.cos(rad(b[0])) * Math.sin(rad(b[1] - a[1]) / 2) ** 2;
+      return sum + 2 * 6371 * Math.asin(Math.sqrt(h));
+    }, 0);
+    return { pts, km: Math.round(km) };
+  }
+  const tripPath = (pts, xy) => pts.length > 1 ? `<path class="trip" d="${pts.map((c, i) => { const [x, y] = xy(c); return `${i ? 'L' : 'M'}${x.toFixed(1)} ${y.toFixed(1)}`; }).join('')}"/>` : '';
   const dot = (p, r) => `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${r}" class="d"/>`;
   function mapSlide(g) {
     const places = mapPlaces(g);
+    const t = trip(g);
     const all = places.map(p => { const [x, y] = mainXY(p.c); return { ...p, x, y }; }).filter(p => inBox([p.x, p.y], MAP.W, MAP.H));
     const amba = places.map(p => { const [x, y] = insXY(p.c); return { ...p, x, y }; }).filter(p => inBox([p.x, p.y], IW, IH, 6));
     const inAmba = new Set(amba.map(p => p.label));
@@ -965,16 +989,18 @@ barcelona|41.3874|2.1686`.split('\n').forEach(row => { const [names, lat, lon] =
       <text class="sea" x="${ocx}" y="${ocy}">Océano Atlántico</text>
       <text class="isl" x="${mvx}" y="${mvy}">Islas Malvinas</text>
       ${amba.length ? `<rect class="zoom" x="${bx0}" y="${by0}" width="${bx1 - bx0}" height="${by1 - by0}"/>` : ''}
+      ${tripPath(t.pts, mainXY)}
       ${all.map(p => dot(p, inAmba.has(p.label) ? 3 : 6)).join('')}
       <g class="lbl">${labelDots(far, MAP.W, MAP.H, 19, 6, 22)}</g>
     </svg>`;
     const inset = amba.length ? `<figure class="map-inset"><figcaption>Área metropolitana de Buenos Aires</figcaption>
       <svg viewBox="0 0 ${IW} ${IH}"><rect class="water" width="${IW}" height="${IH}"/><path class="nei" d="${MAP.insNei}"/><path class="arg" d="${MAP.ins}"/><text class="sea" x="250" y="40">Río de la Plata</text>
-      ${amba.map(p => dot(p, 3.5)).join('')}<g class="lbl">${labelDots(amba, IW, IH, 9, 3.5, 9)}</g></svg></figure>` : '';
+      ${tripPath(t.pts, insXY)}${amba.map(p => dot(p, 3.5)).join('')}<g class="lbl">${labelDots(amba, IW, IH, 9, 3.5, 9)}</g></svg></figure>` : '';
     return { places, html: `<div class="proj-map"><div class="map-side">
         <p class="proj-kicker">Mapa del recorrido</p>
         <h1 class="proj-title">Desde dónde hicimos la carrera</h1>
         <p class="proj-sub">${plural(places.length, 'lugar', 'lugares')} · ${plural(g.hands, 'voz', 'voces')}</p>
+        ${t.km ? `<p class="map-km"><span>Recorrimos</span><b>${t.km.toLocaleString('es-AR')} km</b><small>de verso en verso</small></p>` : ''}
         ${inset}</div>${main}</div>` };
   }
 
