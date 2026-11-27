@@ -473,13 +473,18 @@ def seen_ending(g, i):
     return " ".join(lines[i]["text"].split()[-g["peek"]:]) if seen else ""
 
 
+def owns(line, pid):
+    """The device that wrote the verse, or another one the coordinator handed it to."""
+    return line.get("by") == pid or pid in (line.get("alsoBy") or [])
+
+
 def my_lines(g, body):
     """Only the asking player's own verses: lets each person check their verse was saved."""
     pid = need_player(body)
     lines = g.get("lines", [])
     return {"total": g["turns"], "done": g["status"] == "done",
             "lines": [{"n": i + 1, "text": l["text"], "keep": seen_ending(g, i)}
-                      for i, l in enumerate(lines) if l.get("by") == pid]}
+                      for i, l in enumerate(lines) if owns(l, pid)]}
 
 
 def edit_line(g, body):
@@ -494,7 +499,7 @@ def edit_line(g, body):
     lines = g.get("lines", [])
     if not 0 <= i < len(lines):
         raise Fail(400, "Ese verso no existe.")
-    if lines[i].get("by") != pid:
+    if not owns(lines[i], pid):
         raise Fail(403, "Solo quien escribió ese verso puede cambiarlo, desde el mismo dispositivo.")
     text = clean(body.get("text"), MAX_LINE)
     if not text:
@@ -546,9 +551,47 @@ def set_link(g, body):
     return link_info(g, body)
 
 
+def grant_line(g, body):
+    """Coordinator only: a one-time code that lets the author reach their verse from another device."""
+    need_creator(g, body)
+    if g["status"] == "done":
+        raise Fail(409, "El poema ya se reveló y no se puede cambiar.")
+    try:
+        n = int(body.get("n"))
+    except (TypeError, ValueError):
+        raise Fail(400, "Falta el número de verso.")
+    if not 1 <= n <= len(g.get("lines", [])):
+        raise Fail(400, "Ese verso no existe.")
+    t = now()
+    claims = {k: v for k, v in (g.get("claims") or {}).items() if v.get("exp", 0) > t and v.get("n") != n}
+    code = secrets.token_urlsafe(9)
+    claims[code] = {"n": n, "exp": t + 7 * 86400}
+    g["claims"] = claims
+    STORE.save(g)
+    return {"code": code, "n": n}
+
+
+def claim_line(g, body):
+    """Opening the coordinator's link: this device can now see and change that verse."""
+    pid = need_player(body)
+    code = str(body.get("code") or "")
+    c = (g.get("claims") or {}).get(code)
+    if not c or c.get("exp", 0) < now():
+        raise Fail(410, "Ese link ya se usó o venció. Pedile uno nuevo a quien coordina.")
+    if g["status"] == "done":
+        raise Fail(409, "El poema ya se reveló y no se puede cambiar.")
+    i = c["n"] - 1
+    lines = g.get("lines", [])
+    if 0 <= i < len(lines) and not owns(lines[i], pid):
+        lines[i]["alsoBy"] = (lines[i].get("alsoBy") or [])[-3:] + [pid]
+    g["claims"].pop(code, None)
+    STORE.save(g)
+    return my_lines(g, body)
+
+
 ACTIONS = {"take": take_turn, "lines": add_line, "release": release, "reveal": reveal, "delete": delete_game,
            "turns": set_turns, "mine": my_lines, "edit": edit_line,
-           "links": link_info, "link": set_link}
+           "links": link_info, "link": set_link, "grant": grant_line, "claim": claim_line}
 
 # ---------------------------------------------------------------- rate limit
 

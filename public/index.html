@@ -320,10 +320,13 @@ dialog.expo-dlg::backdrop { background: rgba(31, 44, 48, .72); }
 .link-row select { margin-top: 4px; width: 100%; max-width: 360px; background: var(--paper); color: inherit; border: 1px solid var(--rule); border-radius: 4px; padding: 8px; font: inherit; font-size: .9rem; }
 .link-row .xy { font-family: var(--font-mono); font-size: .75rem; color: var(--muted); margin-left: 6px; }
 .link-row .xy.miss { color: var(--warn, #b5542c); }
+.link-row .grant { margin-top: 6px; display: grid; gap: 4px; justify-items: start; }
+.link-row .grant code { font-family: var(--font-mono); font-size: .75rem; background: var(--paper); border: 1px solid var(--rule); border-radius: 4px; padding: 6px 8px; overflow-wrap: anywhere; max-width: 100%; user-select: all; }
 .link-row .manual { font-size: .78rem; color: var(--accent); margin-left: 6px; }
 .mine-edit { display: grid; gap: 6px; margin-top: 4px; }
 .mine-edit textarea { width: 100%; background: var(--paper); color: inherit; border: 1px solid var(--rule); border-radius: 4px; padding: 10px; font-family: var(--font-display); font-style: italic; font-size: 1.05rem; resize: vertical; }
-.mine .linkish { background: none; border: 0; padding: 0; margin-left: 6px; color: var(--accent); font: inherit; font-size: .85rem; text-decoration: underline; cursor: pointer; }
+.mine .linkish, .link-row .linkish { background: none; border: 0; padding: 0; margin-left: 6px; color: var(--accent); font: inherit; font-size: .85rem; text-decoration: underline; cursor: pointer; }
+.link-row .linkish { margin: 6px 0 0; display: inline-block; text-align: left; }
 .proj-map { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: clamp(16px, 3vw, 56px); align-items: center; width: min(1400px, 100%); height: 100%; min-height: 0; text-align: left; }
 .map-side { display: grid; gap: clamp(10px, 2vh, 22px); justify-items: start; align-content: center; min-width: 0; }
 .map-side .proj-title { font-size: clamp(2rem, 4.6vw, 4.4rem); }
@@ -1410,11 +1413,39 @@ barcelona|41.3874|2.1686`.split('\n').forEach(row => { const [names, lat, lon] =
               <option value="auto"${l.manual ? '' : ' selected'}>Automático${!l.manual ? (a ? `: ${esc(a.name)}` : ': sin foto') : ''}</option>
               ${d.windows.map(x => `<option value="${x.id}"${l.manual && l.window === x.id ? ' selected' : ''}>${esc(x.name || 'sin nombre')}${x.place ? ' · ' + esc(x.place) : ''}</option>`).join('')}
               <option value=""${l.manual && !l.window ? ' selected' : ''}>Sin foto</option>
-            </select></div>
+            </select>
+            ${games.find(x => x.id === gid)?.status === 'done' ? '' : grants[gid + ':' + l.n]
+              ? `<div class="grant"><span class="small">Mandale este link a ${esc(l.name || 'quien lo escribió')}. Sirve una sola vez, durante 7 días:</span><code data-grant-url>${esc(grants[gid + ':' + l.n])}</code><button class="linkish" type="button" data-grant-copy="${l.n}">Copiar link</button></div>`
+              : `<button class="linkish" type="button" data-grant="${l.n}">Link para que cambie su verso desde otro dispositivo</button>`}</div>
         </div>`; }).join('')}
       <div class="row"><button class="btn quiet" data-act="links-close">Listo</button></div>
     </div>`;
   }
+  const grants = {};  // "gid:n" -> one-time link for the author to reach their verse from another device
+  document.addEventListener('click', async e => {
+    const b = e.target.closest('[data-grant], [data-grant-copy]'); if (!b) return;
+    const gid = route().gid;
+    if (b.dataset.grantCopy) { const k = gid + ':' + b.dataset.grantCopy; copyText(grants[k], 'Link copiado.', b.parentElement.querySelector('[data-grant-url]')); return; }
+    b.disabled = true;
+    try {
+      const r = await api(`/api/games/${gid}/grant`, { n: Number(b.dataset.grant) });
+      grants[gid + ':' + r.n] = `${location.origin}${location.pathname}?verso=${encodeURIComponent(r.code)}#p-${gid}`;
+      paintLinks(gid);
+      copyText(grants[gid + ':' + r.n], 'Link copiado. Mandáselo a quien escribió ese verso.');
+    } catch (err) { toast(err.message); b.disabled = false; }
+  });
+  (function claimFromLink() {
+    const code = new URLSearchParams(location.search).get('verso'); if (!code) return;
+    const gid = route().gid;
+    history.replaceState(null, '', location.pathname + location.hash);
+    if (!gid) return;
+    myLinesLoading.add(gid);  // keep the plain "mine" check from racing this one
+    api(`/api/games/${gid}/claim`, { code })
+      .then(r => { myLines[gid] = r; toast('Listo: desde este dispositivo ya podés cambiar tu verso.'); })
+      .catch(err => { delete myLines[gid]; toast(err.message); })
+      .finally(() => { myLinesLoading.delete(gid); if (route().gid === gid) paintMine(gid); });
+  })();
+
   document.addEventListener('change', async e => {
     const sel = e.target.closest('select[data-link]'); if (!sel) return;
     const gid = route().gid;
