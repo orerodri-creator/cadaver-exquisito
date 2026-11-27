@@ -257,6 +257,63 @@ body.projecting { overflow: hidden; }
   .label { max-width: 100%; }
   .label .proj-verse { font-size: clamp(1.2rem, 5vw, 2rem); }
 }
+/* Tabs between the poem, the windows and the exhibition */
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.tabs a { text-decoration: none; color: var(--muted); border: 1px solid var(--rule); border-radius: 999px; padding: 6px 14px; font-size: .92rem; }
+.tabs a[aria-current="page"] { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
+.tabs a:hover { border-color: var(--accent); }
+
+/* Windows */
+.win-intro p { margin: 0; max-width: 60ch; }
+.win-intro { display: grid; gap: 10px; }
+form.win-form { background: var(--sheet); border: 1px solid var(--rule); border-radius: 4px; padding: 20px; display: grid; gap: 18px; }
+.win-form .field input[type="text"], .win-form .field input:not([type]) { background: var(--paper); border: 1px solid var(--rule); padding: 10px 12px; border-radius: 4px; width: 100%; }
+.pick { display: grid; grid-template-columns: minmax(0, 220px) 1fr; gap: 16px; align-items: start; }
+@media (max-width: 520px) { .pick { grid-template-columns: 1fr; } }
+.preview { aspect-ratio: 4 / 3; max-width: 100%; border-radius: 3px; border: 6px solid var(--c, var(--fold-edge)); background: var(--fold); display: grid; place-items: center; overflow: hidden; color: var(--muted); font-size: .85rem; text-align: center; padding: 0; }
+.preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.file-btn { position: relative; overflow: hidden; }
+.file-btn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+.swatch { width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--sheet); outline: 1px solid var(--rule); background: var(--sw); cursor: pointer; padding: 0; }
+.swatch[aria-pressed="true"] { outline: 3px solid var(--ink); }
+.swatch-custom { width: 34px; height: 34px; border: 1px dashed var(--fold-edge); border-radius: 50%; padding: 0; background: none; cursor: pointer; }
+.mosaic { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+@media (max-width: 520px) { .mosaic { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.win { margin: 0; display: grid; gap: 6px; min-width: 0; }
+.win .frame { aspect-ratio: 4 / 3; border: 6px solid var(--c); border-radius: 3px; overflow: hidden; background: var(--c); }
+.win .frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.win figcaption { font-size: .85rem; display: grid; line-height: 1.3; min-width: 0; }
+.win figcaption .place { color: var(--muted); font-style: italic; }
+.win figcaption span { overflow-wrap: anywhere; }
+
+/* Exhibition */
+.expo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 16px; }
+@media (max-width: 520px) { .expo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } }
+.tile { all: unset; box-sizing: border-box; cursor: pointer; display: grid; gap: 6px; min-width: 0; }
+.tile:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.tile .frame { aspect-ratio: 4 / 3; border: 6px solid var(--c, var(--fold-edge)); border-radius: 3px; overflow: hidden; background: var(--c, var(--fold)); position: relative; transition: transform .25s; }
+.tile:hover .frame { transform: translateY(-3px); }
+.tile .frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tile .frame .only-verse { position: absolute; inset: 0; display: grid; place-items: center; padding: 10px; font-family: var(--font-display); font-style: italic; font-size: .95rem; line-height: 1.25; color: #fff; text-align: center; background: linear-gradient(160deg, var(--accent), #15182C); }
+.tile .num { font-family: var(--font-mono); font-size: .7rem; letter-spacing: .1em; color: var(--muted); }
+.tile .who { font-size: .85rem; line-height: 1.3; display: grid; min-width: 0; }
+.tile .who .place { color: var(--muted); font-style: italic; }
+dialog.expo-dlg { border: none; padding: 0; width: min(920px, calc(100vw - 32px)); max-height: calc(100vh - 32px); background: var(--sheet); color: var(--ink); border-radius: 4px; box-shadow: 0 30px 80px -20px rgba(0,0,0,.6); }
+dialog.expo-dlg::backdrop { background: rgba(10, 12, 25, .72); }
+.dlg { display: grid; grid-template-columns: 1.2fr 1fr; min-height: 0; }
+@media (max-width: 700px) { .dlg { grid-template-columns: 1fr; } }
+.dlg-photo { background: var(--c, var(--fold)); border-right: 8px solid var(--c, var(--fold-edge)); display: grid; place-items: center; min-height: 240px; }
+@media (max-width: 700px) { .dlg-photo { border-right: none; border-bottom: 8px solid var(--c, var(--fold-edge)); } }
+.dlg-photo img { width: 100%; height: 100%; max-height: 70vh; object-fit: contain; display: block; background: #0B0D1A; }
+.dlg-text { padding: 24px; display: grid; gap: 14px; align-content: center; min-width: 0; }
+.dlg-text .from { font-family: var(--font-mono); font-size: .85rem; color: var(--muted); }
+.dlg-text .verse { font-family: var(--font-display); font-size: clamp(1.4rem, 3vw, 2rem); line-height: 1.25; margin: 0; overflow-wrap: anywhere; }
+.dlg-text .sign { display: grid; gap: 2px; }
+.dlg-text .sign .place { color: var(--muted); font-style: italic; }
+.dlg-text .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: var(--c); vertical-align: middle; margin-right: 6px; }
+.dlg-nav { display: flex; gap: 8px; flex-wrap: wrap; padding: 12px 24px 20px; justify-content: space-between; grid-column: 1 / -1; border-top: 1px solid var(--rule); }
+
 .mine { background: var(--sheet); border: 1px solid var(--rule); border-left: 4px solid var(--fold-edge); border-radius: 4px; padding: 12px 14px; display: grid; gap: 4px; font-size: .92rem; }
 .mine.ok { border-left-color: var(--accent); }
 .links { background: var(--sheet); border: 1px solid var(--rule); border-radius: 4px; padding: 16px; display: grid; gap: 10px; }
@@ -1168,7 +1225,7 @@ barcelona|41.3874|2.1686`.split('\n').forEach(row => { const [names, lat, lon] =
       } catch (_) { toast('No pude leer esa foto. Probá con una JPG o PNG.'); }
     });
     document.querySelectorAll('.swatch').forEach(b => b.addEventListener('click', () => setPreviewColor(b.dataset.color)));
-    document.getElementById('win-color').addEventListener('input', e => setPreviewColor(e.target.value));
+    ['input', 'change'].forEach(ev => document.getElementById('win-color').addEventListener(ev, e => setPreviewColor(e.target.value)));
     document.getElementById('winForm').addEventListener('submit', async e => {
       e.preventDefault();
       if (busy) return;
