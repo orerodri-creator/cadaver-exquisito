@@ -466,11 +466,46 @@ def set_turns(g, body):
     return {"turns": turns}
 
 
+def seen_ending(g, i):
+    """The words of verse i that the next writer already saw, or "" if nobody has seen them yet."""
+    lines = g.get("lines", [])
+    seen = i + 1 < len(lines) or (i + 1 == len(lines) and writing(g))
+    return " ".join(lines[i]["text"].split()[-g["peek"]:]) if seen else ""
+
+
 def my_lines(g, body):
     """Only the asking player's own verses: lets each person check their verse was saved."""
     pid = need_player(body)
     lines = g.get("lines", [])
-    return {"total": g["turns"], "lines": [{"n": i + 1, "text": l["text"]} for i, l in enumerate(lines) if l.get("by") == pid]}
+    return {"total": g["turns"], "done": g["status"] == "done",
+            "lines": [{"n": i + 1, "text": l["text"], "keep": seen_ending(g, i)}
+                      for i, l in enumerate(lines) if l.get("by") == pid]}
+
+
+def edit_line(g, body):
+    """The author rewrites their own verse before the reveal, keeping the words the next writer already saw."""
+    pid = need_player(body)
+    if g["status"] == "done":
+        raise Fail(409, "El poema ya se reveló y no se puede cambiar.")
+    try:
+        i = int(body.get("n")) - 1
+    except (TypeError, ValueError):
+        raise Fail(400, "Falta el número de verso.")
+    lines = g.get("lines", [])
+    if not 0 <= i < len(lines):
+        raise Fail(400, "Ese verso no existe.")
+    if lines[i].get("by") != pid:
+        raise Fail(403, "Solo quien escribió ese verso puede cambiarlo, desde el mismo dispositivo.")
+    text = clean(body.get("text"), MAX_LINE)
+    if not text:
+        raise Fail(400, "El verso no puede quedar vacío.")
+    keep = seen_ending(g, i)
+    if keep and text.split()[-len(keep.split()):] != keep.split():
+        raise Fail(400, f"Tu verso tiene que terminar con «{keep}», porque la persona que siguió ya leyó esas palabras.")
+    lines[i]["text"] = text
+    lines[i]["edited"] = now()
+    STORE.save(g)
+    return my_lines(g, body)
 
 
 def need_creator(g, body):
@@ -512,7 +547,7 @@ def set_link(g, body):
 
 
 ACTIONS = {"take": take_turn, "lines": add_line, "release": release, "reveal": reveal, "delete": delete_game,
-           "turns": set_turns, "mine": my_lines,
+           "turns": set_turns, "mine": my_lines, "edit": edit_line,
            "links": link_info, "link": set_link}
 
 # ---------------------------------------------------------------- rate limit

@@ -268,6 +268,9 @@ body.projecting { overflow: hidden; }
 .link-row .xy { font-family: var(--font-mono); font-size: .75rem; color: var(--muted); margin-left: 6px; }
 .link-row .xy.miss { color: var(--warn, #b5542c); }
 .link-row .manual { font-size: .78rem; color: var(--accent); margin-left: 6px; }
+.mine-edit { display: grid; gap: 6px; margin-top: 4px; }
+.mine-edit textarea { width: 100%; background: var(--paper); color: inherit; border: 1px solid var(--rule); border-radius: 4px; padding: 10px; font-family: var(--font-display); font-style: italic; font-size: 1.05rem; resize: vertical; }
+.mine .linkish { background: none; border: 0; padding: 0; margin-left: 6px; color: var(--accent); font: inherit; font-size: .85rem; text-decoration: underline; cursor: pointer; }
 .mine .v { font-family: var(--font-display); font-style: italic; font-size: 1.05rem; overflow-wrap: anywhere; }
 </style>
 </head>
@@ -328,6 +331,7 @@ body.projecting { overflow: hidden; }
   let expo = { list: [], i: -1 };
   const myLines = {};          // gid -> {total, lines:[{n,text}]} of this device's own verses
   const myLinesLoading = new Set();
+  let mineEdit = null;         // {gid, n} of the own verse being rewritten
   let linkOpen = null;         // gid whose photo-verse panel is open (coordinator only)
   const linkData = {};         // gid -> {links, windows}
 
@@ -1167,13 +1171,37 @@ barcelona|41.3874|2.1686`.split('\n').forEach(row => { const [names, lat, lon] =
     if (!m || !g) { el.innerHTML = ''; return; }
     if (m.lines.length) {
       el.innerHTML = `<div class="mine ok"><strong>✓ ${m.lines.length === 1 ? 'Ya escribiste tu verso' : `Ya escribiste ${m.lines.length} versos`}</strong>
-        ${m.lines.map(l => `<span>Verso nº ${l.n}: <span class="v">«${esc(l.text)}»</span></span>`).join('')}
+        ${m.lines.map(l => mineEdit && mineEdit.gid === gid && mineEdit.n === l.n && !m.done
+          ? `<form class="mine-edit" data-mine-form="${l.n}">
+              <label for="mine-text">Verso nº ${l.n}</label>
+              <textarea id="mine-text" maxlength="160" rows="3">${esc(l.text)}</textarea>
+              ${l.keep ? `<span class="small">Tiene que terminar con <b>«${esc(l.keep)}»</b>: esas palabras ya las leyó quien siguió. Lo de antes lo podés cambiar.</span>` : '<span class="small">Todavía nadie leyó el final de tu verso, así que podés cambiarlo entero.</span>'}
+              <div class="row"><button class="btn primary" type="submit">Guardar verso</button><button class="btn quiet" type="button" data-mine="cancel">Cancelar</button></div>
+            </form>`
+          : `<span>Verso nº ${l.n}: <span class="v">«${esc(l.text)}»</span>${m.done ? '' : ` <button class="linkish" type="button" data-mine="edit" data-n="${l.n}">Cambiar mi verso</button>`}</span>`).join('')}
         <span class="small">Solo vos ves esto, desde este dispositivo.</span></div>`;
     } else if (g.status !== 'done') {
       el.innerHTML = `<div class="mine"><strong>Desde este dispositivo todavía no figura ningún verso tuyo.</strong>
         <span class="small">Si escribiste desde otro celular o compu, entrá desde ahí para comprobarlo.</span></div>`;
     } else el.innerHTML = '';
   }
+
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-mine]'); if (!b) return;
+    const gid = route().gid;
+    mineEdit = b.dataset.mine === 'edit' ? { gid, n: +b.dataset.n } : null;
+    paintMine(gid);
+    if (mineEdit) { const t = document.getElementById('mine-text'); if (t) { t.focus(); t.setSelectionRange(0, 0); } }
+  });
+  document.addEventListener('submit', e => {
+    const f = e.target.closest('[data-mine-form]'); if (!f) return;
+    e.preventDefault();
+    const gid = route().gid, btn = f.querySelector('button[type=submit]');
+    btn.disabled = true;
+    api(`/api/games/${gid}/edit`, { n: +f.dataset.mineForm, text: document.getElementById('mine-text').value })
+      .then(r => { myLines[gid] = r; mineEdit = null; toast('Listo, tu verso quedó cambiado.'); paintMine(gid); })
+      .catch(err => { toast(err.message); btn.disabled = false; });
+  });
 
   /* ---------- Coordinator: which photo goes with each verse (names only, never the hidden text) ---------- */
   function loadLinks(gid) {
@@ -1328,7 +1356,7 @@ barcelona|41.3874|2.1686`.split('\n').forEach(row => { const [names, lat, lon] =
   setInterval(tick, 1000);
   setInterval(() => { if (!myTurn && loaded && !proj.gid && ['lobby', 'game'].includes(route().view) && !document.activeElement?.matches('input, select, textarea')) render(); }, 15000);
 
-  window.addEventListener('hashchange', () => { armed = null; editTurns = null; linkOpen = null; winEditing = false; winArmed = false; winDraft = null; if (dlg.open) dlg.close(); render(); window.scrollTo(0, 0); });
+  window.addEventListener('hashchange', () => { armed = null; editTurns = null; linkOpen = null; mineEdit = null; winEditing = false; winArmed = false; winDraft = null; if (dlg.open) dlg.close(); render(); window.scrollTo(0, 0); });
 
   /* ---------- Live data ---------- */
   function apply(data) {
@@ -1348,7 +1376,7 @@ barcelona|41.3874|2.1686`.split('\n').forEach(row => { const [names, lat, lon] =
     if (r.view === 'proj' && proj.gid && games.find(g => g.id === r.gid)?.status === 'done') return;
     if (r.view === 'ventanas' && loaded && document.getElementById('win-mosaic')) { paintMosaic(); return; }
     if (r.view === 'muestra' && dlg.open) return;
-    if (!(myTurn && r.gid === myTurn.gid) && !(typing && (r.view === 'new' || editTurns || linkOpen))) render();
+    if (!(myTurn && r.gid === myTurn.gid) && !(typing && (r.view === 'new' || editTurns || linkOpen || mineEdit))) render();
   }
 
   let es = null, retry = null;
