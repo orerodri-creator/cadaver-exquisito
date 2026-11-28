@@ -218,6 +218,7 @@ def public_game(g):
     if g["status"] == "done":
         base["lines"] = [{"text": l["text"], "name": l.get("name") or "", "place": l.get("place") or "",
                           "window": line_window(g, i)} for i, l in enumerate(lines)]
+        base["textPos"] = g.get("textPos") or {}
     else:
         last = lines[-1]["text"] if lines else ""
         base["peekWords"] = " ".join(last.split()[-g["peek"]:]) if last else ""
@@ -589,6 +590,31 @@ def claim_line(g, body):
     return my_lines(g, body)
 
 
+TEXT_POS = ("bl", "br", "tl", "tr")
+
+
+def set_text_pos(g, body):
+    """Coordinator only: where the verse sits over its photo in the projection."""
+    need_creator(g, body)
+    try:
+        n = int(body.get("n"))
+    except (TypeError, ValueError):
+        raise Fail(400, "Falta el número de verso.")
+    if not 1 <= n <= len(g.get("lines", [])):
+        raise Fail(400, "Ese verso no existe.")
+    pos = str(body.get("pos") or "")
+    if pos not in TEXT_POS:
+        raise Fail(400, "Posición no válida.")
+    tp = dict(g.get("textPos") or {})
+    if pos == "bl":
+        tp.pop(str(n), None)
+    else:
+        tp[str(n)] = pos
+    g["textPos"] = tp
+    STORE.save(g)
+    return {"textPos": tp}
+
+
 def rehearsal(g, body):
     """The rehearsal link: the coordinator gets its secret key; anyone else needs that key to open it."""
     pid = need_player(body)
@@ -605,7 +631,7 @@ def rehearsal(g, body):
 
 ACTIONS = {"take": take_turn, "lines": add_line, "release": release, "reveal": reveal, "delete": delete_game,
            "turns": set_turns, "mine": my_lines, "edit": edit_line,
-           "links": link_info, "link": set_link, "grant": grant_line, "claim": claim_line, "ensayo": rehearsal}
+           "links": link_info, "link": set_link, "grant": grant_line, "claim": claim_line, "ensayo": rehearsal, "pos": set_text_pos}
 
 # ---------------------------------------------------------------- rate limit
 
